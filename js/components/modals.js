@@ -2,6 +2,7 @@
 /* global React, htm */
 import { store, update, useStore, toast, nextId, canEdit } from '../store.js';
 import { CATS } from '../data.js';
+import { fetchAutoSpeciesInfo } from '../species-info.js';
 import { FELLES } from '../config.js';
 import * as db from '../db.js';
 
@@ -47,17 +48,43 @@ export function AddSpeciesModal(){
   const [info, setInfo] = useState('');
   const [min, setMin] = useState('');
   const [fredet, setFredet] = useState(false);
+  const [autoLoading, setAutoLoading] = useState(false);
   if(!store.addOpen || !canEdit()) return null;
   const cats = Object.entries(CATS).map(([k,v])=>({k, name:v.name}));
   const close = ()=>update(st=>{ st.addOpen = false; });
+  async function autofillInfo(){
+    const nm = name.trim();
+    if(!nm){ toast('Skriv artsnavn først'); return null; }
+    setAutoLoading(true);
+    const found = await fetchAutoSpeciesInfo(nm);
+    setAutoLoading(false);
+    if(!found){ toast('Fant ikke automatisk artsinfo. Du kan skrive inn manuelt.'); return null; }
+    if(!info.trim()) setInfo(found.info || '');
+    if(!min.trim()) setMin(found.min || '');
+    if(!fredet && found.fredet) setFredet(true);
+    toast('Artsinfo hentet automatisk');
+    return found;
+  }
+
   async function create(){
     const nm = name.trim();
     if(!nm) return;
     const id = nextId(cat);
-    const details = {info, min, fredet};
+    let details = {info:info.trim(), min:min.trim(), fredet:!!fredet};
+    // Hvis du ikke har skrevet artsinfo, prøver appen å fylle inn automatisk før den lagrer.
+    if(!details.info){
+      const found = await fetchAutoSpeciesInfo(nm);
+      if(found){
+        details = {
+          info: details.info || found.info || '',
+          min: details.min || found.min || '',
+          fredet: details.fredet || !!found.fredet,
+        };
+      }
+    }
     if(await db.addSpeciesRow(id, nm, cat, details)){
       update(st=>{
-        st.species.push({id, name:nm, cat, custom:true, sil:null, info:info.trim(), min:min.trim(), fredet:!!fredet, catches:{}});
+        st.species.push({id, name:nm, cat, custom:true, sil:null, info:details.info, min:details.min, fredet:!!details.fredet, catches:{}});
         st.filterCat = cat;
         st.view = 'dex';
         st.addOpen = false;
@@ -90,7 +117,10 @@ export function AddSpeciesModal(){
             <textarea value=${info} placeholder="Kjennetegn, tips, regler eller fun fact …"
                       onChange=${e=>setInfo(e.target.value)}></textarea></div>
         </div>
-        <p style=${{fontSize:'13px', color:'var(--blek)', marginTop:'10px'}}>Arten får automatisk neste ledige nummer i kategorien. Artsinfo kan også endres senere inne på artskortet.</p>
+        <div className="modal-actions" style=${{marginTop:'10px'}}>
+          <button className="btn ghost" onClick=${autofillInfo} disabled=${autoLoading}>${autoLoading ? 'Henter …' : '✨ Hent artsinfo automatisk'}</button>
+        </div>
+        <p style=${{fontSize:'13px', color:'var(--blek)', marginTop:'10px'}}>Arten får automatisk neste ledige nummer i kategorien. Hvis artsinfo står tomt, prøver appen å hente kort info automatisk før lagring. Regler og minstemål bør alltid dobbeltsjekkes.</p>
         <div className="modal-actions">
           <button className="btn primary" onClick=${create}>Legg til i Pokédexen</button>
           <button className="btn ghost" onClick=${close}>Avbryt</button>

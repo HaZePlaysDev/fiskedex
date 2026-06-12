@@ -2,6 +2,7 @@
 /* global React, htm, L */
 import { store, update, useStore, sp, toast, catchers, memberName, canEdit } from '../store.js';
 import { ARTSINFO } from '../data.js';
+import { fetchAutoSpeciesInfo } from '../species-info.js';
 import { FELLES, KARMOY } from '../config.js';
 import * as db from '../db.js';
 import { compressImage, traceSilhouette } from '../utils.js';
@@ -29,18 +30,21 @@ export function DetailModal(){
   const [resetArmed, setResetArmed] = useState(false);
   const [pickOpen, setPickOpen] = useState(false);
   const [infoForm, setInfoForm] = useState({info:'', min:'', fredet:false});
+  const [autoInfoLoading, setAutoInfoLoading] = useState(false);
   const armTimer = useRef(null);
   const fisherRef = useRef(fisher); fisherRef.current = fisher;
 
   const entry = ()=> (s && s.catches && s.catches[fisher]) || null;
 
-  // når kortet åpnes: velg fisker ut fra valgt visning eller første som faktisk har fanget arten
+  // når kortet åpnes: velg valgt fisker, eller første ekte fisker som har fanget arten.
+  // Felles er bare historikk/visning, ikke et sted man skal registrere nye fangster.
   useEffect(()=>{
     if(!id || !s) return;
     const who = catchers(s);
-    const best = store.member && (s.catches||{})[store.member]
+    const realCatchers = who.filter(m=>m!==FELLES);
+    const best = store.member && store.member!==FELLES && (s.catches||{})[store.member]
       ? store.member
-      : (who[0] || (store.members[0] || FELLES));
+      : (realCatchers[0] || store.members[0] || (who.includes(FELLES) ? FELLES : ''));
     setFisher(best);
     setInfoForm({info:s.info||'', min:s.min||'', fredet:!!s.fredet});
   }, [id]);
@@ -56,19 +60,29 @@ export function DetailModal(){
       vekt: c?c.vekt:'', kommentar: c?c.kommentar:'',
     });
     setCurPos((c && c.lat!=null && c.lng!=null) ? {lat:c.lat, lng:c.lng} : null);
-    setPhotoUrl(null);
-    if(c && c.hasPhoto){
-      const m = fisher;
+    setPhotoUrl(undefined);
+
+    const m = fisher;
+    if(c && m){
+      // Prøv alltid å hente bildet. Gamle data kan ha bilde selv om hasPhoto-flagget er feil.
       db.loadPhoto(id, m).then(u=>{
-        if(store.detailId===id && fisherRef.current===m) setPhotoUrl(u);
+        if(store.detailId===id && fisherRef.current===m){
+          setPhotoUrl(u || null);
+          if(u && s.catches && s.catches[m] && !s.catches[m].hasPhoto){
+            update(()=>{ s.catches[m].hasPhoto = true; });
+          }
+        }
       });
+    } else {
+      setPhotoUrl(null);
     }
+
     setGallery([]);
-    const withPhoto = catchers(s).filter(m=>s.catches[m].hasPhoto);
-    if(withPhoto.length>1){
-      withPhoto.forEach(async m=>{
-        const u = await db.loadPhoto(id, m);
-        if(u && store.detailId===id) setGallery(g=>[...g.filter(x=>x.m!==m), {m, url:u}]);
+    const allCatchers = catchers(s);
+    if(allCatchers.length>1){
+      allCatchers.forEach(async m2=>{
+        const u = await db.loadPhoto(id, m2);
+        if(u && store.detailId===id) setGallery(g=>[...g.filter(x=>x.m!==m2), {m:m2, url:u}]);
       });
     }
   }, [id, fisher]);
@@ -82,9 +96,15 @@ export function DetailModal(){
   const close = ()=>update(st=>{ st.detailId = null; });
 
   function readonlyToast(){ toast('Gjestemodus: du kan bare se, ikke endre.'); }
+  function validFisherForEdit(){
+    if(!fisher){ toast('Legg til eller velg en fisker først.'); return false; }
+    if(fisher===FELLES){ toast('Velg en ekte fisker. «Felles» er bare visning av gamle fellesfangster.'); return false; }
+    return true;
+  }
 
   function toggleCaught(){
     if(!editable){ readonlyToast(); return; }
+    if(!validFisherForEdit()) return;
     setCaught(c=>{
       const on = !c;
       if(on && !form.dato) setForm(f=>({...f, dato:new Date().toISOString().slice(0,10)}));
@@ -94,6 +114,7 @@ export function DetailModal(){
 
   async function save(){
     if(!editable){ readonlyToast(); return; }
+    if(!validFisherForEdit()) return;
     const mem = fisher;
     let ok;
     if(caught){
@@ -124,8 +145,23 @@ export function DetailModal(){
     } else toast('Kunne ikke lagre artsinfo. Har du kjørt SQL-filen for nye kolonner?');
   }
 
+  async function autofillInfo(){
+    if(!canEditInfo) return;
+    setAutoInfoLoading(true);
+    const found = await fetchAutoSpeciesInfo(s.name);
+    setAutoInfoLoading(false);
+    if(!found){ toast('Fant ikke automatisk artsinfo. Skriv inn manuelt.'); return; }
+    setInfoForm(f=>({
+      info: f.info.trim() ? f.info : (found.info || ''),
+      min: f.min.trim() ? f.min : (found.min || ''),
+      fredet: !!(f.fredet || found.fredet),
+    }));
+    toast('Artsinfo hentet automatisk');
+  }
+
   async function onPhoto(ev){
     if(!editable){ ev.target.value=''; readonlyToast(); return; }
+    if(!validFisherForEdit()){ ev.target.value=''; return; }
     const f = ev.target.files[0]; ev.target.value=''; if(!f) return;
     const mem = fisher;
     try{
@@ -195,6 +231,7 @@ export function DetailModal(){
   const pickLatLng = useRef(null);
   function openPick(){
     if(!editable){ readonlyToast(); return; }
+    if(!validFisherForEdit()) return;
     if(typeof L==='undefined'){ toast('Kartet fikk ikke lastet \u2013 sjekk nettet'); return; }
     setPickOpen(true);
     setTimeout(()=>{
@@ -226,7 +263,8 @@ export function DetailModal(){
     if(pickMap.current){ pickMap.current.remove(); pickMap.current=null; pickMarker.current=null; }
   }, [id]);
 
-  const fisherOptions = [...new Set([...store.members, ...catchers(s), FELLES])];
+  const realOptions = [...store.members, ...catchers(s).filter(m=>m!==FELLES)];
+  const fisherOptions = [...new Set([...realOptions, ...(s.catches && s.catches[FELLES] ? [FELLES] : [])])];
 
   return html`
   <div className="overlay open" onClick=${e=>{ if(e.target===e.currentTarget) close(); }}>
@@ -260,15 +298,16 @@ export function DetailModal(){
               <label className="checkline"><input type="checkbox" checked=${infoForm.fredet}
                      onChange=${e=>setInfoForm({...infoForm, fredet:e.target.checked})}/> Kun observasjon</label></div>
             <div className="modal-actions" style=${{marginTop:'4px'}}>
+              <button className="btn ghost" style=${smallBtn} onClick=${autofillInfo} disabled=${autoInfoLoading}>${autoInfoLoading ? 'Henter …' : '✨ Hent automatisk'}</button>
               <button className="btn ghost" style=${smallBtn} onClick=${saveInfo}>Lagre artsinfo</button>
               <span className=${'savemsg'+(infoSaveMsg?' show':'')}>Lagret ✓</span>
             </div>
           </div>`}
 
-        <label className=${'photo-zone'+(photoUrl?' has':'')+(editable?'':' read-only')} htmlFor=${editable?'photoInput':null} title=${editable?'Last opp bilde':'Gjestemodus'}>
+        <label className=${'photo-zone'+(photoUrl?' has':'')+(editable?'':' read-only')} htmlFor=${editable && fisher!==FELLES ? 'photoInput' : null} title=${editable?'Last opp bilde':'Gjestemodus'}>
           ${photoUrl
             ? html`<img src=${photoUrl} alt="Fangstbilde"/>`
-            : html`<span className="hint">${editable ? '📷 Trykk for å laste opp bilde av fangsten' : 'Ingen fangstbilde for valgt fisker'}</span>`}
+            : html`<span className="hint">${photoUrl===undefined ? 'Henter fangstbilde …' : (editable ? '📷 Trykk for å laste opp bilde av fangsten' : 'Ingen fangstbilde for valgt fisker')}</span>`}
         </label>
         ${editable && html`<input type="file" id="photoInput" accept="image/*" className="vh" onChange=${onPhoto}/>`}
 
@@ -291,7 +330,8 @@ export function DetailModal(){
         <div className="field" style=${{marginTop:'14px'}}>
           <label>Fisker</label>
           <select value=${fisher} onChange=${e=>setFisher(e.target.value)}>
-            ${fisherOptions.map(m=>html`<option key=${m} value=${m}>${memberName(m)}</option>`)}
+            ${!fisher && html`<option value="">Velg fisker</option>`}
+            ${fisherOptions.map(m=>html`<option key=${m} value=${m} disabled=${editable && m===FELLES}>${memberName(m)}${m===FELLES?' (kun gammel visning)':''}</option>`)}
           </select>
         </div>
 

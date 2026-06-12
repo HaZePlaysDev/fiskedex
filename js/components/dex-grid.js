@@ -11,6 +11,7 @@ const { useState, useEffect, useRef } = React;
 
 export function SpeciesCard({ s, photoUrl }){
   const caught = isCaught(s);
+  const photoLoading = caught && photoUrl === undefined;
   let meta = 'Ikke registrert';
   if(caught){
     if(store.member){
@@ -31,10 +32,12 @@ export function SpeciesCard({ s, photoUrl }){
     <div className=${'card' + (caught?'':' uncaught')} role="button" tabIndex="0"
          onClick=${open}
          onKeyDown=${e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); open(); } }}>
-      <div className=${'img' + (photoUrl?'':' empty')}>
+      <div className=${'img' + (photoUrl?'':' empty') + (photoLoading?' loading-photo':'')}>
         ${photoUrl
           ? html`<img src=${photoUrl} alt=""/>`
-          : html`<span dangerouslySetInnerHTML=${{__html: silFor(s)}}/>`}
+          : photoLoading
+            ? html`<span className="photo-wait">Henter bilde …</span>`
+            : html`<span dangerouslySetInnerHTML=${{__html: silFor(s)}}/>`}
       </div>
       <div className="body">
         <div className="id">${s.id}</div>
@@ -71,13 +74,21 @@ export function DexGrid(){
       const key = s.id + '|' + candidates.map(m=>m+':' + (s.catches[m].hasPhoto?'1':'0')).join(',');
       if(cacheKeys.current[s.id] === key) continue;
       cacheKeys.current[s.id] = key;
+      // undefined betyr: vi leter etter bilde. Da viser ikke kortet silhuett først.
+      setPhotoUrls(p=>({...p,[s.id]:undefined}));
       (async()=>{
         let url = null;
+        let foundMem = null;
         for(const mem of candidates){
           url = await loadPhoto(s.id, mem);
-          if(url) break;
+          if(url){ foundMem = mem; break; }
         }
-        if(alive) setPhotoUrls(p=>({...p,[s.id]:url}));
+        if(alive){
+          if(url && foundMem && s.catches && s.catches[foundMem] && !s.catches[foundMem].hasPhoto){
+            update(()=>{ s.catches[foundMem].hasPhoto = true; });
+          }
+          setPhotoUrls(p=>({...p,[s.id]:url || null}));
+        }
       })();
     }
     return ()=>{ alive = false; };
