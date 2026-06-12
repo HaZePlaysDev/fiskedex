@@ -1,5 +1,10 @@
-const CACHE='fiskedex-v1';
-const ASSETS=['/','/index.html','/manifest.webmanifest','/img/forside.jpg','/img/kat-f.jpg','/img/kat-k.jpg','/img/kat-b.jpg','/img/kat-h.jpg','/img/kat-m.jpg','/img/icon-192.png','/img/icon-512.png'];
+const CACHE='fiskedex-react-v1';
+const ASSETS=['/','/index.html','/manifest.webmanifest',
+ '/css/theme.css','/css/components.css',
+ '/js/app.js','/js/config.js','/js/data.js','/js/db.js','/js/silhouettes.js','/js/store.js','/js/utils.js','/js/weather.js',
+ '/js/components/dex-grid.js','/js/components/detail-modal.js','/js/components/views.js','/js/components/modals.js',
+ '/img/forside.jpg','/img/kat-f.jpg','/img/kat-k.jpg','/img/kat-b.jpg','/img/kat-h.jpg','/img/kat-m.jpg',
+ '/img/icon-192.png','/img/icon-512.png'];
 self.addEventListener('install',e=>{
   e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting()));
 });
@@ -8,7 +13,7 @@ self.addEventListener('activate',e=>{
 });
 self.addEventListener('fetch',e=>{
   const u=new URL(e.request.url);
-  if(u.origin!==location.origin) return; // Supabase/kart gaar rett paa nett
+  if(u.origin!==location.origin) return; // Supabase/Vue/Leaflet gaar rett paa nett
   e.respondWith(
     fetch(e.request).then(r=>{
       const cp=r.clone();
