@@ -1,6 +1,6 @@
 // Rot-appen: skall (header/verktøylinje), visningsbytte, sanntid og oppstart
 /* global React, ReactDOM, htm */
-import { store, update, useStore, reload, isCaught, memberName, anyModalOpen, catOrder } from './store.js';
+import { store, update, useStore, reload, isCaught, memberName, anyModalOpen, catOrder, canEdit } from './store.js';
 import { CATS } from './data.js';
 import * as db from './db.js';
 import { fetchWeather } from './weather.js';
@@ -33,7 +33,7 @@ function App(){
         await init();
       }
     })();
-    const onVis = ()=>{ if(!document.hidden && store.authed && !anyModalOpen()) reload(true); };
+    const onVis = ()=>{ if(!document.hidden && (store.authed || store.guest) && !anyModalOpen()) reload(true); };
     const onKey = e=>{
       if(e.key==='Escape') update(s=>{
         s.lightboxUrl = null; s.detailId = null; s.addOpen = false; s.memberOpen = false;
@@ -49,16 +49,25 @@ function App(){
   }, []);
 
   async function onAuthed(){
-    update(s=>{ s.authed = true; });
+    update(s=>{ s.authed = true; s.guest = false; s.loaded = false; });
     await init();
   }
+  async function onGuest(){
+    update(s=>{ s.guest = true; s.authed = false; s.loaded = false; });
+    await init();
+  }
+  async function leaveGuest(){
+    update(s=>{ s.guest = false; s.loaded = false; });
+  }
 
-  if(!store.authed){
+  if(!store.authed && !store.guest){
     return html`<${React.Fragment}>
-      <${LoginGate} onAuthed=${onAuthed}/>
+      <${LoginGate} onAuthed=${onAuthed} onGuest=${onGuest}/>
       <div className=${'toast'+(store.toastMsg?' show':'')}>${store.toastMsg}</div>
     <//>`;
   }
+
+  const editable = canEdit();
 
   const counts = { ALL: store.species.length };
   for(const c in CATS) counts[c] = store.species.filter(s=>s.cat===c).length;
@@ -92,7 +101,7 @@ function App(){
       <div className="head-inner">
         <div className="eyebrow">Haugalandet \u00b7 Under overflaten</div>
         <h1>KARM<span className="o">\u00d8</span>Y FISHING CHAMPIONSHIP</h1>
-        <div className="tagline">V\u00e5rt oppdrag er \u00e5 finne dem alle \u2013 \u00e9n art om gangen. Trykk p\u00e5 en art for \u00e5 registrere fangst.</div>
+        <div className="tagline">V\u00e5rt oppdrag er \u00e5 finne dem alle \u2013 \u00e9n art om gangen. ${editable ? 'Trykk p\u00e5 en art for \u00e5 registrere fangst.' : 'Gjestemodus: du kan se fangstene, men ikke endre noe.'}</div>
         <div className="progress-wrap">
           <div className="progress-num"><span>${caughtCount}</span>/<span>${tot}</span><small>ARTER KARTLAGT</small></div>
           <div className="progress-bar"><div className="progress-fill" style=${{width: pct+'%'}}></div></div>
@@ -114,23 +123,24 @@ function App(){
         <button className=${'chip'+(store.filterCaught===false?' active':'')}
                 onClick=${()=>update(s=>{ s.filterCaught = s.filterCaught===false ? null : false; })}>Mangler</button>
       </div>
-      <div className="search">\U0001F50E<input type="search" placeholder="S\u00f8k etter art \u2026" aria-label="S\u00f8k"
+      <div className="search">🔎<input type="search" placeholder="S\u00f8k etter art \u2026" aria-label="S\u00f8k"
            value=${store.q} onChange=${e=>update(s=>{ s.q = e.target.value.trim().toLowerCase(); })}/></div>
-      <button className="btn-add" onClick=${()=>update(s=>{ s.addOpen = true; })}>+ Ny art</button>
+      ${editable && html`<button className="btn-add" onClick=${()=>update(s=>{ s.addOpen = true; })}>+ Ny art</button>`}
       <button className="tab" title="Hent kompisenes siste fangster" onClick=${()=>reload(false)}>\u21bb Oppdater</button>
-      <button className=${'tab'+(store.view==='stats'?' active':'')} onClick=${()=>toggleView('stats')}>\U0001F4CA Toppliste</button>
-      <button className=${'tab'+(store.view==='map'?' active':'')} onClick=${()=>toggleView('map')}>\U0001F5FA\uFE0F Kart</button>
-      <button className=${'tab'+(store.view==='logg'?' active':'')} onClick=${()=>toggleView('logg')}>\U0001F4DC Logg</button>
+      <button className=${'tab'+(store.view==='stats'?' active':'')} onClick=${()=>toggleView('stats')}>📊 Toppliste</button>
+      <button className=${'tab'+(store.view==='map'?' active':'')} onClick=${()=>toggleView('map')}>🗺\uFE0F Kart</button>
+      <button className=${'tab'+(store.view==='logg'?' active':'')} onClick=${()=>toggleView('logg')}>📜 Logg</button>
+      ${store.guest && html`<button className="tab guest-login" onClick=${leaveGuest}>Logg inn for å redigere</button>`}
     </div>
 
     <div className="members-bar">
       <span className="mlabel">Fisker:</span>
       <button className=${'mchip'+(store.member===null?' active':'')}
-              onClick=${()=>update(s=>{ s.member = null; })}>\U0001F465 Alle</button>
+              onClick=${()=>update(s=>{ s.member = null; })}>👥 Alle</button>
       ${store.members.map(m=>html`
         <button key=${m} className=${'mchip'+(store.member===m?' active':'')}
                 onClick=${()=>update(s=>{ s.member = m; })}>${m}</button>`)}
-      <button className="mchip add" onClick=${()=>update(s=>{ s.memberOpen = true; })}>+ Fisker</button>
+      ${editable && html`<button className="mchip add" onClick=${()=>update(s=>{ s.memberOpen = true; })}>+ Fisker</button>`}
     </div>
 
     <main>

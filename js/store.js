@@ -6,6 +6,7 @@ import * as db from './db.js';
 
 export const store = {
   authed: false,
+  guest: false,          // true = lesemodus uten passord
   loaded: false,
   showCover: true,
   species: [],          // [{id,name,cat,custom,sil,catches:{medlem:{...}}}]
@@ -68,6 +69,7 @@ export async function reload(quiet){
     update(s=>{
       s.species = speciesRows.map(r=>({
         id:r.id, name:r.name, cat:r.cat, custom:!!r.custom, sil:r.sil||null,
+        info:r.info||'', min:r.min||'', fredet:!!r.fredet,
         catches:cmap[r.id]||{},
       }));
       s.members = memberRows.map(r=>r.name);
@@ -108,6 +110,9 @@ export function visibleSpecies(){
 }
 export function catOrder(){
   return Object.keys(CATS).sort((a,b)=>CATS[a].order-CATS[b].order);
+}
+export function canEdit(){
+  return store.authed && !store.guest;
 }
 export function anyModalOpen(){
   return !!(store.detailId || store.addOpen || store.memberOpen);

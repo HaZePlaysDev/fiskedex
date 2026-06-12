@@ -1,6 +1,6 @@
 // Artskortet: fangstregistrering per fisker, bilder, galleri, silhuett og posisjon
 /* global React, htm, L */
-import { store, update, useStore, sp, toast, catchers, memberName } from '../store.js';
+import { store, update, useStore, sp, toast, catchers, memberName, canEdit } from '../store.js';
 import { ARTSINFO } from '../data.js';
 import { FELLES, KARMOY } from '../config.js';
 import * as db from '../db.js';
@@ -15,6 +15,7 @@ export function DetailModal(){
   useStore();
   const id = store.detailId;
   const s = id ? sp(id) : null;
+  const editable = canEdit();
 
   const [fisher, setFisher] = useState(FELLES);
   const [caught, setCaught] = useState(false);
@@ -23,18 +24,25 @@ export function DetailModal(){
   const [photoUrl, setPhotoUrl] = useState(null);
   const [gallery, setGallery] = useState([]);
   const [saveMsg, setSaveMsg] = useState(false);
+  const [infoSaveMsg, setInfoSaveMsg] = useState(false);
   const [delArmed, setDelArmed] = useState(false);
   const [resetArmed, setResetArmed] = useState(false);
   const [pickOpen, setPickOpen] = useState(false);
+  const [infoForm, setInfoForm] = useState({info:'', min:'', fredet:false});
   const armTimer = useRef(null);
   const fisherRef = useRef(fisher); fisherRef.current = fisher;
 
   const entry = ()=> (s && s.catches && s.catches[fisher]) || null;
 
-  // når kortet åpnes: velg fisker ut fra valgt visning
+  // når kortet åpnes: velg fisker ut fra valgt visning eller første som faktisk har fanget arten
   useEffect(()=>{
-    if(!id) return;
-    setFisher(store.member && store.members.includes(store.member) ? store.member : (store.members[0]||FELLES));
+    if(!id || !s) return;
+    const who = catchers(s);
+    const best = store.member && (s.catches||{})[store.member]
+      ? store.member
+      : (who[0] || (store.members[0] || FELLES));
+    setFisher(best);
+    setInfoForm({info:s.info||'', min:s.min||'', fredet:!!s.fredet});
   }, [id]);
 
   // last skjema når art eller fisker endres
@@ -67,10 +75,16 @@ export function DetailModal(){
 
   if(!s) return null;
 
-  const info = ARTSINFO[s.id];
+  const baseInfo = ARTSINFO[s.id] || null;
+  const ownInfo = (s.info || s.min || s.fredet) ? {info:s.info, min:s.min, fredet:!!s.fredet} : null;
+  const info = ownInfo ? {...(baseInfo||{}), ...ownInfo, fredet:!!(ownInfo.fredet || (baseInfo && baseInfo.fredet))} : baseInfo;
+  const canEditInfo = editable && s.custom;
   const close = ()=>update(st=>{ st.detailId = null; });
 
+  function readonlyToast(){ toast('Gjestemodus: du kan bare se, ikke endre.'); }
+
   function toggleCaught(){
+    if(!editable){ readonlyToast(); return; }
     setCaught(c=>{
       const on = !c;
       if(on && !form.dato) setForm(f=>({...f, dato:new Date().toISOString().slice(0,10)}));
@@ -79,6 +93,7 @@ export function DetailModal(){
   }
 
   async function save(){
+    if(!editable){ readonlyToast(); return; }
     const mem = fisher;
     let ok;
     if(caught){
@@ -96,10 +111,21 @@ export function DetailModal(){
       ok = await db.removeCatch(s.id, mem);
     }
     if(ok){ setSaveMsg(true); setTimeout(()=>setSaveMsg(false), 1800); }
-    else toast('Kunne ikke lagre \u2013 pr\u00f8v igjen');
+    else toast('Kunne ikke lagre \u2013 prøv igjen');
+  }
+
+  async function saveInfo(){
+    if(!canEditInfo) return;
+    const details = {info:infoForm.info, min:infoForm.min, fredet:infoForm.fredet};
+    const ok = await db.updateSpeciesInfo(s.id, details);
+    if(ok){
+      update(()=>{ s.info = details.info.trim(); s.min = details.min.trim(); s.fredet = !!details.fredet; });
+      setInfoSaveMsg(true); setTimeout(()=>setInfoSaveMsg(false), 1800);
+    } else toast('Kunne ikke lagre artsinfo. Har du kjørt SQL-filen for nye kolonner?');
   }
 
   async function onPhoto(ev){
+    if(!editable){ ev.target.value=''; readonlyToast(); return; }
     const f = ev.target.files[0]; ev.target.value=''; if(!f) return;
     const mem = fisher;
     try{
@@ -117,21 +143,22 @@ export function DetailModal(){
       if(!form.dato) setForm(fm=>({...fm, dato:s.catches[mem].dato}));
     }catch(err){
       toast(err && err.message==='decode'
-        ? 'Bildeformatet st\u00f8ttes ikke \u2013 pr\u00f8v JPG eller PNG'
-        : 'Kunne ikke lese bildet \u2013 pr\u00f8v et annet');
+        ? 'Bildeformatet støttes ikke \u2013 prøv JPG eller PNG'
+        : 'Kunne ikke lese bildet \u2013 prøv et annet');
     }
   }
 
   async function onSil(ev){
+    if(!editable){ ev.target.value=''; readonlyToast(); return; }
     const f = ev.target.files[0]; ev.target.value=''; if(!f) return;
-    toast('Lager silhuett \u2026');
+    toast('Lager silhuett …');
     try{
       const sil = await traceSilhouette(f);
       update(()=>{ s.sil = sil; });
       await db.updateSil(s.id, sil);
       toast('Silhuett laget!');
     }catch(e){
-      toast('Klarte ikke skille motivet fra bakgrunnen \u2013 pr\u00f8v et bilde med renere bakgrunn');
+      toast('Klarte ikke skille motivet fra bakgrunnen \u2013 prøv et bilde med renere bakgrunn');
     }
   }
 
@@ -141,6 +168,7 @@ export function DetailModal(){
     armTimer.current = setTimeout(()=>setter(false), 4000);
   }
   async function resetCatch(){
+    if(!editable){ readonlyToast(); return; }
     if(!entry()) return;
     if(!resetArmed){ arm(setResetArmed); return; }
     setResetArmed(false);
@@ -153,6 +181,7 @@ export function DetailModal(){
     toast('Fangsten ble slettet \u2013 arten ligger fortsatt i dexen');
   }
   async function delSpecies(){
+    if(!editable){ readonlyToast(); return; }
     if(!delArmed){ arm(setDelArmed); return; }
     setDelArmed(false);
     update(st=>{ st.species = st.species.filter(x=>x.id!==s.id); st.detailId = null; });
@@ -165,6 +194,7 @@ export function DetailModal(){
   const pickMarker = useRef(null);
   const pickLatLng = useRef(null);
   function openPick(){
+    if(!editable){ readonlyToast(); return; }
     if(typeof L==='undefined'){ toast('Kartet fikk ikke lastet \u2013 sjekk nettet'); return; }
     setPickOpen(true);
     setTimeout(()=>{
@@ -196,7 +226,7 @@ export function DetailModal(){
     if(pickMap.current){ pickMap.current.remove(); pickMap.current=null; pickMarker.current=null; }
   }, [id]);
 
-  const fisherOptions = [...store.members, FELLES];
+  const fisherOptions = [...new Set([...store.members, ...catchers(s), FELLES])];
 
   return html`
   <div className="overlay open" onClick=${e=>{ if(e.target===e.currentTarget) close(); }}>
@@ -212,24 +242,41 @@ export function DetailModal(){
 
         ${info && html`
           <div className="art-info">
-            ${info.fredet && html`<span className="ai-badge fredet">\u26d4 Fredet / kun observasjon</span>`}
-            ${info.min && html`<span className="ai-badge">\u{1F4CF} Minstem\u00e5l: ${info.min}</span>`}
+            ${info.fredet && html`<span className="ai-badge fredet">⛔ Fredet / kun observasjon</span>`}
+            ${info.min && html`<span className="ai-badge">📏 Minstemål: ${info.min}</span>`}
             <span className="ai-text">${info.info}</span>
             ${(info.fredet || info.min) && html`<span className="ai-disc">Sjekk fiskeridir.no for gjeldende regler.</span>`}
           </div>`}
 
-        <label className=${'photo-zone'+(photoUrl?' has':'')} htmlFor="photoInput" title="Last opp bilde">
+        ${canEditInfo && html`
+          <div className="art-info edit-info">
+            <div className="field full"><label>Artsinfo for egen art</label>
+              <textarea value=${infoForm.info} placeholder="Kjennetegn, tips, regler eller fun fact …"
+                        onChange=${e=>setInfoForm({...infoForm, info:e.target.value})}></textarea></div>
+            <div className="field"><label>Minstemål / regel</label>
+              <input type="text" value=${infoForm.min} placeholder="f.eks. 30 cm"
+                     onChange=${e=>setInfoForm({...infoForm, min:e.target.value})}/></div>
+            <div className="field"><label>Fredet?</label>
+              <label className="checkline"><input type="checkbox" checked=${infoForm.fredet}
+                     onChange=${e=>setInfoForm({...infoForm, fredet:e.target.checked})}/> Kun observasjon</label></div>
+            <div className="modal-actions" style=${{marginTop:'4px'}}>
+              <button className="btn ghost" style=${smallBtn} onClick=${saveInfo}>Lagre artsinfo</button>
+              <span className=${'savemsg'+(infoSaveMsg?' show':'')}>Lagret ✓</span>
+            </div>
+          </div>`}
+
+        <label className=${'photo-zone'+(photoUrl?' has':'')+(editable?'':' read-only')} htmlFor=${editable?'photoInput':null} title=${editable?'Last opp bilde':'Gjestemodus'}>
           ${photoUrl
             ? html`<img src=${photoUrl} alt="Fangstbilde"/>`
-            : html`<span className="hint">\U0001F4F7 Trykk for \u00e5 laste opp bilde av fangsten</span>`}
+            : html`<span className="hint">${editable ? '📷 Trykk for å laste opp bilde av fangsten' : 'Ingen fangstbilde for valgt fisker'}</span>`}
         </label>
-        <input type="file" id="photoInput" accept="image/*" className="vh" onChange=${onPhoto}/>
+        ${editable && html`<input type="file" id="photoInput" accept="image/*" className="vh" onChange=${onPhoto}/>`}
 
         <div className="flex flex-wrap gap-2 mt-2">
           ${photoUrl && html`<button className="btn ghost" style=${smallBtn}
-                onClick=${()=>update(st=>{ st.lightboxUrl = photoUrl; })}>\U0001F50D Vis bildet i full st\u00f8rrelse</button>`}
-          <label className="btn ghost" htmlFor="silInput" style=${smallBtn}>\u2702 Lag silhuett fra et bilde</label>
-          <input type="file" id="silInput" accept="image/*" className="vh" onChange=${onSil}/>
+                onClick=${()=>update(st=>{ st.lightboxUrl = photoUrl; })}>🔍 Vis bildet i full størrelse</button>`}
+          ${editable && html`<label className="btn ghost" htmlFor="silInput" style=${smallBtn}>✂ Lag silhuett fra et bilde</label>`}
+          ${editable && html`<input type="file" id="silInput" accept="image/*" className="vh" onChange=${onSil}/>`}
         </div>
 
         ${gallery.length>0 && html`
@@ -249,43 +296,45 @@ export function DetailModal(){
         </div>
 
         <div className="caught-row">
-          <div className=${'toggle'+(caught?' on':'')} onClick=${toggleCaught} role="switch" aria-checked=${caught}><i></i></div>
-          <span>${caught ? 'Fanget!' : 'Ikke fanget enn\u00e5'}</span>
+          <div className=${'toggle'+(caught?' on':'')+(editable?'':' disabled-toggle')} onClick=${toggleCaught} role="switch" aria-checked=${caught}><i></i></div>
+          <span>${caught ? 'Fanget!' : 'Ikke fanget ennå'}</span>
         </div>
 
         <div className=${'fields'+(caught?'':' disabled')}>
           <div className="field"><label>Dato</label>
-            <input type="date" value=${form.dato} onChange=${e=>setForm({...form, dato:e.target.value})}/></div>
+            <input type="date" disabled=${!editable} value=${form.dato} onChange=${e=>setForm({...form, dato:e.target.value})}/></div>
           <div className="field"><label>Sted</label>
-            <input type="text" value=${form.sted} placeholder="f.eks. \u00c5krehamn" onChange=${e=>setForm({...form, sted:e.target.value})}/></div>
+            <input type="text" disabled=${!editable} value=${form.sted} placeholder="f.eks. Åkrehamn" onChange=${e=>setForm({...form, sted:e.target.value})}/></div>
           <div className="field"><label>Lengde</label>
-            <input type="text" value=${form.lengde} placeholder="f.eks. 42 cm" onChange=${e=>setForm({...form, lengde:e.target.value})}/></div>
+            <input type="text" disabled=${!editable} value=${form.lengde} placeholder="f.eks. 42 cm" onChange=${e=>setForm({...form, lengde:e.target.value})}/></div>
           <div className="field"><label>Vekt</label>
-            <input type="text" value=${form.vekt} placeholder="f.eks. 1,2 kg" onChange=${e=>setForm({...form, vekt:e.target.value})}/></div>
+            <input type="text" disabled=${!editable} value=${form.vekt} placeholder="f.eks. 1,2 kg" onChange=${e=>setForm({...form, vekt:e.target.value})}/></div>
           <div className="field full"><label>Posisjon</label>
             <div className="flex items-center gap-2 flex-wrap">
-              <button className="btn ghost" type="button" style=${smallBtn} onClick=${openPick}>\U0001F4CD Velg p\u00e5 kart</button>
+              ${editable && html`<button className="btn ghost" type="button" style=${smallBtn} onClick=${openPick}>📍 Velg på kart</button>`}
               <span style=${{fontSize:'12.5px', color:'var(--blek)'}}>
                 ${curPos ? curPos.lat.toFixed(4)+', '+curPos.lng.toFixed(4) : 'Ingen posisjon valgt'}
               </span>
-              ${curPos && html`<button className="btn ghost" type="button"
+              ${editable && curPos && html`<button className="btn ghost" type="button"
                   style=${{fontSize:'12px', padding:'6px 10px'}} onClick=${()=>setCurPos(null)}>\u2715 Fjern</button>`}
             </div>
           </div>
           <div className="field full"><label>Kommentarer</label>
-            <textarea value=${form.kommentar} placeholder="Agn, v\u00e6r, historien bak \u2026"
+            <textarea disabled=${!editable} value=${form.kommentar} placeholder="Agn, vær, historien bak …"
                       onChange=${e=>setForm({...form, kommentar:e.target.value})}></textarea></div>
         </div>
 
         <div className="modal-actions">
-          <button className="btn primary" onClick=${save}>Lagre fangst</button>
-          <span className=${'savemsg'+(saveMsg?' show':'')}>Lagret \u2713</span>
-          ${entry() && html`<button className="btn ghost"
-              style=${resetArmed ? {background:'var(--boye)', color:'#fff', borderColor:'var(--boye)'} : null}
-              onClick=${resetCatch}>${resetArmed ? 'Sikker? Trykk igjen' : 'Slett fangst'}</button>`}
-          <button className="btn danger"
-              style=${delArmed ? {background:'var(--stamp)', color:'#fff'} : null}
-              onClick=${delSpecies}>${delArmed ? 'Sikker? Trykk igjen for \u00e5 slette' : 'Slett art'}</button>
+          ${editable ? html`
+            <button className="btn primary" onClick=${save}>Lagre fangst</button>
+            <span className=${'savemsg'+(saveMsg?' show':'')}>Lagret ✓</span>
+            ${entry() && html`<button className="btn ghost"
+                style=${resetArmed ? {background:'var(--boye)', color:'#fff', borderColor:'var(--boye)'} : null}
+                onClick=${resetCatch}>${resetArmed ? 'Sikker? Trykk igjen' : 'Slett fangst'}</button>`}
+            <button className="btn danger"
+                style=${delArmed ? {background:'var(--stamp)', color:'#fff'} : null}
+                onClick=${delSpecies}>${delArmed ? 'Sikker? Trykk igjen for å slette' : 'Slett art'}</button>`
+          : html`<span className="guest-note">Gjestemodus: lesetilgang uten endringer.</span>`}
         </div>
       </div>
     </div>
@@ -299,7 +348,7 @@ export function DetailModal(){
         </div>
         <div className="modal-body">
           <div id="mapPick" style=${{height:'55vh', borderRadius:'8px', overflow:'hidden'}}></div>
-          <p style=${{fontSize:'12.5px', color:'var(--blek)', marginTop:'8px'}}>Trykk p\u00e5 kartet der fangsten ble tatt.</p>
+          <p style=${{fontSize:'12.5px', color:'var(--blek)', marginTop:'8px'}}>Trykk på kartet der fangsten ble tatt.</p>
           <div className="modal-actions">
             <button className="btn primary" onClick=${savePick}>Bruk denne posisjonen</button>
             <button className="btn ghost" onClick=${()=>setPickOpen(false)}>Avbryt</button>

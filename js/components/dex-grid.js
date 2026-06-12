@@ -52,25 +52,33 @@ export function DexGrid(){
 
   const list = visibleSpecies();
 
-  // hent kortbilder for synlige arter (riktig fisker prioriteres)
+  // hent kortbilder for synlige arter.
+  // Før prøver vi valgt fisker, deretter andre som har fanget arten.
+  // Vi prøver også selv om hasPhoto-flagget er feil, fordi gamle data kan være litt ute av sync.
   useEffect(()=>{
     let alive = true;
     for(const s of list){
-      let mem = null;
-      if(store.member){
-        const c = s.catches && s.catches[store.member];
-        if(c && c.hasPhoto) mem = store.member;
-      } else {
-        mem = catchers(s).find(m=>s.catches[m].hasPhoto) || null;
-      }
-      if(!mem){
+      const who = catchers(s);
+      let candidates = [];
+      if(store.member && (s.catches||{})[store.member]) candidates.push(store.member);
+      candidates.push(...who.filter(m=>!candidates.includes(m) && s.catches[m].hasPhoto));
+      candidates.push(...who.filter(m=>!candidates.includes(m)));
+
+      if(!candidates.length){
         if(cacheKeys.current[s.id]){ delete cacheKeys.current[s.id]; setPhotoUrls(p=>({...p,[s.id]:null})); }
         continue;
       }
-      const key = s.id + '|' + mem;
+      const key = s.id + '|' + candidates.map(m=>m+':' + (s.catches[m].hasPhoto?'1':'0')).join(',');
       if(cacheKeys.current[s.id] === key) continue;
       cacheKeys.current[s.id] = key;
-      loadPhoto(s.id, mem).then(url=>{ if(alive) setPhotoUrls(p=>({...p,[s.id]:url})); });
+      (async()=>{
+        let url = null;
+        for(const mem of candidates){
+          url = await loadPhoto(s.id, mem);
+          if(url) break;
+        }
+        if(alive) setPhotoUrls(p=>({...p,[s.id]:url}));
+      })();
     }
     return ()=>{ alive = false; };
   });

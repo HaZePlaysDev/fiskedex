@@ -1,4 +1,4 @@
-const CACHE='fiskedex-react-v1';
+const CACHE='fiskedex-react-v2';
 const ASSETS=['/','/index.html','/manifest.webmanifest',
  '/css/theme.css','/css/components.css',
  '/js/app.js','/js/config.js','/js/data.js','/js/db.js','/js/silhouettes.js','/js/store.js','/js/utils.js','/js/weather.js',

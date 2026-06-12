@@ -1,6 +1,6 @@
 // Visninger: 📊 toppliste, 🗺️ fangstkart og 📜 fangstlogg
 /* global React, htm, L */
-import { store, update, useStore, toast, catchers, memberName, catOrder } from '../store.js';
+import { store, update, useStore, toast, catchers, memberName, catOrder, canEdit } from '../store.js';
 import { CATS } from '../data.js';
 import { FELLES, KARMOY } from '../config.js';
 import * as db from '../db.js';
@@ -13,6 +13,7 @@ const { useState, useEffect, useRef } = React;
 export function StatsView(){
   useStore();
   const [delArmed, setDelArmed] = useState(null);
+  const editable = canEdit();
   const armTimer = useRef(null);
 
   const catRows = catOrder().map(c=>{
@@ -111,7 +112,7 @@ export function StatsView(){
       <div key=${st.m} className=${'lb-row'+(i===0&&st.count>0?' gold':'')}>
         <span className="lb-rank">${medal(i)}</span>
         <span className="lb-name">${memberName(st.m)}</span>
-        ${st.m!==FELLES && html`<button className="lb-del" onClick=${()=>delMember(st.m)}>
+        ${editable && st.m!==FELLES && html`<button className="lb-del" onClick=${()=>delMember(st.m)}>
           ${delArmed===st.m ? 'Sikker? Trykk igjen' : 'Slett fisker'}</button>`}
         <span className="lb-count">${st.count} ${st.count===1?'art':'arter'}</span>
         ${(st.heaviest||st.longest||st.last) && html`<span className="lb-details">
@@ -121,14 +122,14 @@ export function StatsView(){
         </span>`}
       </div>`)}
 
-    <div className="stats-card">
+    ${editable ? html`<div className="stats-card">
       <h3>Backup og konto</h3>
       <div className="flex flex-wrap gap-2">
-        <button className="btn ghost" onClick=${()=>doExport(false)}>\U0001F4E6 Last ned backup</button>
-        <button className="btn ghost" onClick=${()=>doExport(true)}>\U0001F4E6 Backup med bilder (stor)</button>
+        <button className="btn ghost" onClick=${()=>doExport(false)}>📦 Last ned backup</button>
+        <button className="btn ghost" onClick=${()=>doExport(true)}>📦 Backup med bilder (stor)</button>
         <button className="btn ghost" onClick=${logoutNow}>Logg ut</button>
       </div>
-    </div>
+    </div>` : html`<div className="stats-card"><h3>Gjestemodus</h3><p style=${{fontSize:'13.5px', color:'var(--blek)'}}>Du kan se fangster, bilder, kart og logg, men ikke endre noe.</p></div>`}
   </div>`;
 }
 
@@ -198,7 +199,7 @@ export function LogView(){
       <div key=${r.s.id+'|'+r.m} className="log-row" onClick=${()=>update(st=>{ st.detailId = r.s.id; })}>
         <span className="log-date">${dateOf(r)}</span>
         <span className="log-text"><b>${memberName(r.m)}</b> fanget <b>${r.s.name}</b>${extraOf(r)?' \u2013 '+extraOf(r):''}</span>
-        ${r.c.hasPhoto && html`<button className="log-cam" title="Se bildet" onClick=${e=>showPhoto(r,e)}>\U0001F4F7</button>`}
+        ${r.c.hasPhoto && html`<button className="log-cam" title="Se bildet" onClick=${e=>showPhoto(r,e)}>📷</button>`}
       </div>`)}
   </div>`;
 }

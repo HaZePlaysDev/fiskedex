@@ -173,3 +173,18 @@ label.btn{display:inline-block;text-align:center}
 .log-cam{margin-left:auto;border:none;background:none;font-size:18px;cursor:pointer}
 #mapBox,#mapPick{background:#dfe9e9}
 .leaflet-container{font-family:'Public Sans',sans-serif}
+
+/* ---------- justeringer: gjestemodus, artsinfo og større topp ---------- */
+.guest-login{border-style:dashed!important;color:var(--boye)!important;border-color:var(--boye)!important}
+.guest-note{font-size:13.5px;color:var(--blek);font-weight:700;background:#eef3f0;border:1.5px solid var(--linje);border-radius:99px;padding:8px 13px}
+.photo-zone.read-only{cursor:default}
+.disabled-toggle{opacity:.55;cursor:not-allowed}
+.checkline{display:flex;align-items:center;gap:8px;min-height:38px;font-size:13.5px;color:var(--hav);font-weight:600}
+.checkline input{width:18px;height:18px}
+.edit-info{align-items:stretch}
+.edit-info .field{flex:1 1 180px}
+.edit-info .field.full{flex-basis:100%}
+@media (max-width:560px){
+  header{padding-top:38px;padding-bottom:30px}
+  h1{font-size:clamp(44px,15vw,68px)}
+}

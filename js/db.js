@@ -48,8 +48,27 @@ export async function removeCatch(id, mem){
   photoCache.delete(id+':'+mem);
   return !r.error;
 }
-export async function addSpeciesRow(id, name, cat){
-  const r = await sb.from('species').insert({id, name, cat, custom:true});
+export async function addSpeciesRow(id, name, cat, details={}){
+  const row = {
+    id, name, cat, custom:true,
+    info:(details.info||'').trim(),
+    min:(details.min||'').trim(),
+    fredet:!!details.fredet,
+  };
+  let r = await sb.from('species').insert(row);
+  // Hvis databasen ikke har fått artsinfo-kolonnene ennå, legg arten til uten ekstra felter.
+  // Kjør SQL-filen i pakken for å aktivere lagring av artsinfo.
+  if(r.error && /info|min|fredet/i.test(String(r.error.message||''))){
+    r = await sb.from('species').insert({id, name, cat, custom:true});
+  }
+  return !r.error;
+}
+export async function updateSpeciesInfo(id, details={}){
+  const r = await sb.from('species').update({
+    info:(details.info||'').trim(),
+    min:(details.min||'').trim(),
+    fredet:!!details.fredet,
+  }).eq('id', id);
   return !r.error;
 }
 export async function deleteSpeciesRow(id){
