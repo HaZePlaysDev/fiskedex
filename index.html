@@ -199,6 +199,29 @@ main{max-width:1060px;margin:0 auto;padding:14px 20px 80px}
 /* skjult fil-input som fortsatt fungerer med <label> på mobil */
 .vh{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;clip:rect(0 0 0 0)}
 label.btn{display:inline-block;text-align:center}
+
+/* ---------- toppliste / statistikk ---------- */
+.stats-wrap{display:flex;flex-direction:column;gap:14px;margin-top:18px}
+.stats-card{background:var(--papir);border:1.5px solid var(--linje);border-radius:var(--radius);padding:16px 18px}
+.stats-card h3{font-family:'Staatliches',sans-serif;font-size:22px;letter-spacing:.05em;font-weight:400;margin-bottom:10px}
+.cat-progress{display:flex;flex-direction:column;gap:8px}
+.cat-progress .row{display:flex;align-items:center;gap:10px;font-size:13px}
+.cat-progress .row .lbl{width:150px;font-weight:700;color:var(--hav)}
+.cat-progress .bar{flex:1;height:8px;background:#dde7e8;border-radius:99px;overflow:hidden}
+.cat-progress .bar i{display:block;height:100%;background:var(--tang);border-radius:99px}
+.cat-progress .num{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--blek);width:52px;text-align:right}
+.lb-row{display:flex;align-items:center;gap:12px;background:var(--papir);border:1.5px solid var(--linje);border-radius:var(--radius);padding:12px 16px;flex-wrap:wrap}
+.lb-row.gold{border-color:#c9a227;background:#fdf8e8}
+.lb-rank{font-size:24px;width:38px;text-align:center;flex:none}
+.lb-name{font-family:'Staatliches',sans-serif;font-size:23px;letter-spacing:.03em;min-width:90px}
+.lb-count{font-family:'Staatliches',sans-serif;font-size:21px;color:var(--boye);margin-left:auto;white-space:nowrap}
+.lb-details{flex-basis:100%;font-size:12.5px;color:var(--blek);padding-left:50px;display:flex;gap:14px;flex-wrap:wrap}
+.lb-del{border:1.5px solid transparent;background:transparent;color:var(--stamp);border-radius:99px;padding:5px 12px;font-size:12px;font-weight:700;flex:none}
+.lb-del:hover{border-color:var(--stamp)}
+.record-line{font-size:14px;display:flex;gap:8px;align-items:baseline;margin-top:4px}
+.record-line .rl-icon{flex:none}
+.record-line b{color:var(--hav)}
+@media (max-width:560px){ .lb-details{padding-left:0} }
 </style>
 </head>
 <body>
@@ -237,6 +260,7 @@ label.btn{display:inline-block;text-align:center}
   <div class="search">🔎<input id="search" type="search" placeholder="Søk etter art …" aria-label="Søk"></div>
   <button class="btn-add" id="btnAdd">+ Ny art</button>
   <button class="tab" id="btnRefresh" title="Hent kompisenes siste fangster">↻ Oppdater</button>
+  <button class="tab" id="btnStats">📊 Toppliste</button>
 </div>
 
 <div class="members-bar" id="membersBar"></div>
@@ -381,7 +405,7 @@ const FELLES = '*';
 let sb = null;
 function configOk(){ return SUPABASE_URL.startsWith('https://') && SUPABASE_KEY.length > 30; }
 
-let state = { species: [], members: [], filterCat:'ALL', filterCaught:null, q:'', member:null };
+let state = { species: [], members: [], filterCat:'ALL', filterCaught:null, q:'', member:null, view:'dex' };
 let photoCache = {};
 let currentId = null;
 
@@ -448,6 +472,17 @@ async function addMemberRow(name){
   if(r.error){ console.error(r.error); toast('Kunne ikke legge til fiskeren'); return false; }
   return true;
 }
+async function removeMemberFully(name){
+  await sb.from('photos').delete().eq('member', name);
+  await sb.from('catches').delete().eq('member', name);
+  const r = await sb.from('members').delete().eq('name', name);
+  if(r.error){ toast('Kunne ikke slette fiskeren'); return false; }
+  state.members = state.members.filter(x=>x!==name);
+  for(const s of state.species){ if(s.catches) delete s.catches[name]; }
+  for(const k of Object.keys(photoCache)){ if(k.endsWith(':'+name)) delete photoCache[k]; }
+  if(state.member===name) state.member=null;
+  return true;
+}
 async function updateSil(id, sil){
   const r = await sb.from('species').update({sil}).eq('id', id);
   if(r.error){ toast('Kunne ikke lagre silhuetten'); return false; }
@@ -507,13 +542,13 @@ function compressImage(file){
       const img = new Image();
       img.onload = ()=>{
         try{
-          const MAX=900;
+          const MAX=1600;
           let w=img.naturalWidth,h=img.naturalHeight;
           if(!w||!h) return rej(new Error('decode'));
           if(Math.max(w,h)>MAX){ const k=MAX/Math.max(w,h); w=Math.round(w*k); h=Math.round(h*k); }
           const c=document.createElement('canvas'); c.width=w; c.height=h;
           c.getContext('2d').drawImage(img,0,0,w,h);
-          res(c.toDataURL('image/jpeg',0.72));
+          res(c.toDataURL('image/jpeg',0.85));
         }catch(err){ rej(err); }
       };
       img.onerror = ()=>rej(new Error('decode'));
@@ -529,7 +564,7 @@ function renderTabs(){
   for(const c in CATS) counts[c]=state.species.filter(s=>s.cat===c).length;
   const mk=(key,label)=>`<button class="tab ${state.filterCat===key?'active':''}" data-cat="${key}">${label}<span class="cnt">${counts[key]||0}</span></button>`;
   $('#tabs').innerHTML = mk('ALL','Alle') + Object.keys(CATS).sort((a,b)=>CATS[a].order-CATS[b].order).map(c=>mk(c,CATS[c].name)).join('');
-  document.querySelectorAll('#tabs .tab').forEach(b=>b.onclick=()=>{state.filterCat=b.dataset.cat; render();});
+  document.querySelectorAll('#tabs .tab').forEach(b=>b.onclick=()=>{state.filterCat=b.dataset.cat; state.view='dex'; syncStatsBtn(); render();});
 }
 function renderMembers(){
   let h=`<span class="mlabel">Fisker:</span>`;
@@ -585,7 +620,8 @@ function cardHTML(s){
   </div>`;
 }
 function render(){
-  renderTabs(); renderProgress();
+  renderTabs(); renderProgress(); syncStatsBtn();
+  if(state.view==='stats'){ renderStats(); return; }
   const list = visibleSpecies();
   if(!list.length){ $('#content').innerHTML='<div class="empty-state">Ingen treff her ute. Kast p\u00e5 nytt med et annet s\u00f8k \u2013 eller legg til en ny art.</div>'; return; }
   let html='';
@@ -617,6 +653,115 @@ function render(){
     if(url && el){ el.classList.remove('empty'); el.innerHTML=`<img src="${url}" alt="">`; }
   });
 }
+/* ---------- toppliste / statistikk ---------- */
+function parseWeightKg(v){
+  if(!v) return null;
+  const m=String(v).replace(',','.').match(/([\d.]+)\s*(kg|g)?/i);
+  if(!m) return null;
+  let n=parseFloat(m[1]); if(isNaN(n)) return null;
+  const u=(m[2]||'').toLowerCase();
+  if(u==='g') n=n/1000;
+  else if(!u && n>50) n=n/1000;   // "800" uten enhet tolkes som gram
+  return n;
+}
+function parseLengthCm(v){
+  if(!v) return null;
+  const m=String(v).replace(',','.').match(/([\d.]+)\s*(cm|mm|m)?/i);
+  if(!m) return null;
+  let n=parseFloat(m[1]); if(isNaN(n)) return null;
+  const u=(m[2]||'').toLowerCase();
+  if(u==='m') n=n*100;
+  else if(u==='mm') n=n/10;
+  return n;
+}
+function fmtKg(n){ return n>=1 ? (Math.round(n*100)/100).toString().replace('.',',')+' kg' : Math.round(n*1000)+' g'; }
+function fmtCm(n){ return (Math.round(n*10)/10).toString().replace('.',',')+' cm'; }
+function memberStats(){
+  const mems=[...state.members];
+  if(state.species.some(s=>s.catches && s.catches[FELLES]) && !mems.includes(FELLES)) mems.push(FELLES);
+  return mems.map(m=>{
+    let count=0, heaviest=null, longest=null, last=null;
+    for(const s of state.species){
+      const c=s.catches && s.catches[m]; if(!c) continue;
+      count++;
+      const w=parseWeightKg(c.vekt); if(w!=null && (!heaviest||w>heaviest.w)) heaviest={w,art:s.name};
+      const l=parseLengthCm(c.lengde); if(l!=null && (!longest||l>longest.l)) longest={l,art:s.name};
+      if(c.dato && (!last || c.dato>last.dato)) last={dato:c.dato,art:s.name};
+    }
+    return {m,count,heaviest,longest,last};
+  }).sort((a,b)=>b.count-a.count);
+}
+let statsDeleteArmed=null;
+function renderStats(){
+  const tot=state.species.length;
+  const caughtAll=state.species.filter(s=>catchers(s).length>0).length;
+  const order=Object.keys(CATS).sort((a,b)=>CATS[a].order-CATS[b].order);
+  let catRows='';
+  for(const c of order){
+    const grp=state.species.filter(s=>s.cat===c);
+    if(!grp.length) continue;
+    const cc=grp.filter(s=>catchers(s).length>0).length;
+    const pct=grp.length?Math.round(100*cc/grp.length):0;
+    catRows+=`<div class="row"><span class="lbl">${CATS[c].name}</span><span class="bar"><i style="width:${pct}%"></i></span><span class="num">${cc}/${grp.length}</span></div>`;
+  }
+  // gjengens rekorder
+  let recH=null, recL=null;
+  for(const s of state.species){
+    for(const m of catchers(s)){
+      const c=s.catches[m];
+      const w=parseWeightKg(c.vekt); if(w!=null && (!recH||w>recH.w)) recH={w,art:s.name,m};
+      const l=parseLengthCm(c.lengde); if(l!=null && (!recL||l>recL.l)) recL={l,art:s.name,m};
+    }
+  }
+  const stats=memberStats();
+  const medal=i=> i===0?'\u{1F947}':i===1?'\u{1F948}':i===2?'\u{1F949}':(i+1)+'.';
+  let lb='';
+  if(!stats.length){
+    lb='<div class="empty-state">Ingen fiskere enn\u00e5 \u2013 legg til gjengen med \u00ab+ Fisker\u00bb-knappen!</div>';
+  } else {
+    lb=stats.map((st,i)=>{
+      const det=[];
+      if(st.heaviest) det.push(`\u2696\uFE0F Tyngst: ${esc(st.heaviest.art)} (${fmtKg(st.heaviest.w)})`);
+      if(st.longest) det.push(`\u{1F4CF} Lengst: ${esc(st.longest.art)} (${fmtCm(st.longest.l)})`);
+      if(st.last) det.push(`\u{1F553} Siste: ${esc(st.last.art)} ${esc(st.last.dato)}`);
+      const delBtn = st.m===FELLES ? '' :
+        `<button class="lb-del" data-del="${esc(st.m)}">${statsDeleteArmed===st.m?'Sikker? Trykk igjen':'Slett fisker'}</button>`;
+      return `<div class="lb-row ${i===0&&st.count>0?'gold':''}">
+        <span class="lb-rank">${medal(i)}</span>
+        <span class="lb-name">${esc(memberName(st.m))}</span>
+        ${delBtn}
+        <span class="lb-count">${st.count} ${st.count===1?'art':'arter'}</span>
+        ${det.length?`<span class="lb-details">${det.join('<span>\u00b7</span>')}</span>`:''}
+      </div>`;
+    }).join('');
+  }
+  $('#content').innerHTML=`<div class="stats-wrap">
+    <div class="stats-card">
+      <h3>Gjengens fremgang</h3>
+      <div class="record-line" style="margin-bottom:10px"><b style="font-family:'Staatliches';font-size:26px">${caughtAll}/${tot}</b> arter kartlagt totalt</div>
+      <div class="cat-progress">${catRows}</div>
+      ${recH?`<div class="record-line"><span class="rl-icon">\u{1F3C6}</span> Tyngste fangst: <b>${esc(recH.art)}</b> p\u00e5 ${fmtKg(recH.w)} (${esc(memberName(recH.m))})</div>`:''}
+      ${recL?`<div class="record-line"><span class="rl-icon">\u{1F4CF}</span> Lengste fangst: <b>${esc(recL.art)}</b> p\u00e5 ${fmtCm(recL.l)} (${esc(memberName(recL.m))})</div>`:''}
+    </div>
+    <div class="stats-card" style="padding-bottom:8px"><h3>Toppliste</h3></div>
+    ${lb}
+  </div>`;
+  document.querySelectorAll('.lb-del').forEach(b=>{
+    b.onclick=async ()=>{
+      const name=b.dataset.del;
+      if(statsDeleteArmed!==name){
+        statsDeleteArmed=name;
+        renderStats();
+        setTimeout(()=>{ if(statsDeleteArmed===name){ statsDeleteArmed=null; if(state.view==='stats') renderStats(); } },4000);
+        return;
+      }
+      statsDeleteArmed=null;
+      const ok=await removeMemberFully(name);
+      if(ok){ toast(`${name} og alle fangstene deres er slettet`); renderAll(); }
+    };
+  });
+}
+function syncStatsBtn(){ const b=$('#btnStats'); if(b) b.classList.toggle('active', state.view==='stats'); }
 function renderAll(){ renderMembers(); render(); }
 
 /* ================= detail modal ================= */
@@ -905,6 +1050,7 @@ function syncChips(){
   $('#chipUncaught').classList.toggle('active',state.filterCaught===false);
 }
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closeDetail(); closeAdd(); closeMember(); } });
+$('#btnStats').onclick=()=>{ state.view = state.view==='stats' ? 'dex' : 'stats'; statsDeleteArmed=null; render(); };
 
 /* ================= forside ================= */
 $('#btnEnter').onclick=()=>{ $('#cover').classList.add('hide'); setTimeout(()=>{ $('#cover').style.display='none'; },450); };
