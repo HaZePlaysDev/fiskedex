@@ -80,15 +80,19 @@ function App(){
 
   const pickTab = key => update(s=>{ s.filterCat = key; s.view = 'dex'; });
   const toggleView = v => update(s=>{ s.view = s.view===v ? 'dex' : v; });
+  const openFiskedex = ()=>{
+    update(s=>{ s.coverClosing = true; });
+    setTimeout(()=>update(s=>{ s.showCover = false; s.coverClosing = false; }), 460);
+  };
 
   return html`<${React.Fragment}>
 
     ${store.showCover && html`
-      <div id="cover">
+      <div id="cover" className=${store.coverClosing ? 'hide' : ''}>
         <img src="img/forside.jpg" alt="Karm\u00f8y Fishing Championship-plakat"/>
         <h2>KARM\u00d8Y FISHING<br/>CHAMPIONSHIP</h2>
         <p>Under overflaten finnes en verden de fleste aldri ser. Noen arter er vanlige. Andre er legender. V\u00e5rt oppdrag er \u00e5 finne dem alle.</p>
-        <button className="btn-add" onClick=${()=>update(s=>{ s.showCover = false; })}>\u00c5pne Pok\u00e9dexen</button>
+        <button className="btn-add" onClick=${openFiskedex}>\u00c5pne FiskeDex</button>
       </div>`}
 
     <header>
@@ -100,7 +104,7 @@ function App(){
       </svg>
       <div className="head-inner">
         <div className="eyebrow">Haugalandet \u00b7 Under overflaten</div>
-        <h1>KARM<span className="o">\u00d8</span>Y FISHING CHAMPIONSHIP</h1>
+        <h1 className="hero-title">KARM<span className="o">\u00d8</span>Y FISHING CHAMPIONSHIP</h1>
         <div className="tagline">V\u00e5rt oppdrag er \u00e5 finne dem alle \u2013 \u00e9n art om gangen. ${editable ? 'Trykk p\u00e5 en art for \u00e5 registrere fangst.' : 'Gjestemodus: du kan se fangstene, men ikke endre noe.'}</div>
         <div className="progress-wrap">
           <div className="progress-num"><span>${caughtCount}</span>/<span>${tot}</span><small>ARTER KARTLAGT</small></div>

@@ -122,7 +122,7 @@ export function AddSpeciesModal(){
         </div>
         <p style=${{fontSize:'13px', color:'var(--blek)', marginTop:'10px'}}>Arten får automatisk neste ledige nummer i kategorien. Hvis artsinfo står tomt, prøver appen å hente kort info automatisk. Minstemål/regler må dobbeltsjekkes før fisken beholdes.</p>
         <div className="modal-actions">
-          <button className="btn primary" onClick=${create}>Legg til i Pokédexen</button>
+          <button className="btn primary" onClick=${create}>Legg til i FiskeDexen</button>
           <button className="btn ghost" onClick=${close}>Avbryt</button>
         </div>
       </div>
@@ -161,7 +161,7 @@ export function AddMemberModal(){
                    onChange=${e=>setName(e.target.value)}
                    onKeyDown=${e=>{ if(e.key==='Enter') create(); }}/></div>
         </div>
-        <p style=${{fontSize:'13px', color:'var(--blek)', marginTop:'10px'}}>Hver fisker får sin egen Pokédex med egne fangster og bilder. «Alle» viser den felles samlingen der alles fangster teller.</p>
+        <p style=${{fontSize:'13px', color:'var(--blek)', marginTop:'10px'}}>Hver fisker får sin egen FiskeDex med egne fangster og bilder. «Alle» viser den felles samlingen der alles fangster teller.</p>
         <div className="modal-actions">
           <button className="btn primary" onClick=${create}>Legg til fisker</button>
           <button className="btn ghost" onClick=${close}>Avbryt</button>

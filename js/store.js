@@ -9,6 +9,7 @@ export const store = {
   guest: false,          // true = lesemodus uten passord
   loaded: false,
   showCover: true,
+  coverClosing: false,
   species: [],          // [{id,name,cat,custom,sil,catches:{medlem:{...}}}]
   members: [],
   member: null,          // valgt fisker (null = alle)
@@ -53,16 +54,25 @@ export function toast(msg){
 /* ---------- lasting ---------- */
 export async function reload(quiet){
   try{
-    let { speciesRows, memberRows, catchRows } = await db.fetchAll();
+    let { speciesRows, memberRows, catchRows, photoRows } = await db.fetchAll();
     if(!speciesRows.length){
       const rows = SEED.map(([id,name])=>({id,name,cat:id[0],custom:false}));
       speciesRows = (await db.seedSpecies(rows)).sort((a,b)=>a.id<b.id?-1:1);
     }
+    // Prim bilde-cache før kortene tegnes, så fangstbilder kommer opp med en gang.
+    const photoSet = new Set();
+    if(photoRows && photoRows.length){
+      db.primePhotoCache(photoRows);
+      for(const p of photoRows){
+        if(p && p.species_id && p.member && (p.thumb || p.data)) photoSet.add(p.species_id + ':' + p.member);
+      }
+    }
+
     const cmap = {};
     for(const c of catchRows){
       (cmap[c.species_id] = cmap[c.species_id]||{})[c.member] = {
         dato:c.dato||'', sted:c.sted||'', lengde:c.lengde||'', vekt:c.vekt||'',
-        kommentar:c.kommentar||'', hasPhoto:!!c.has_photo,
+        kommentar:c.kommentar||'', hasPhoto:!!c.has_photo || photoSet.has(c.species_id + ':' + c.member),
         lat:(c.lat!=null?c.lat:null), lng:(c.lng!=null?c.lng:null), created:c.created_at||'',
       };
     }

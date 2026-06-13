@@ -34,8 +34,8 @@ function shortenInfo(text){
   const useful = sentences.filter(s=>/(kjennetegn|farge|rygg|buk|finn|hal|munn|skjegg|flekk|stripe|prikk|lang|stor|kan bli|blir|vokser|vekt|cm|meter|kg)/i.test(s));
   let picked = (useful.length ? useful : sentences).slice(0, 2).join(' ');
 
-  // Hold teksten kort nok til artskortet.
-  if(picked.length > 230) picked = picked.slice(0, 230).replace(/\s+\S*$/, '') + ' …';
+  // Hold teksten veldig kort: helst kjennetegn + størrelse, ikke lang Wikipedia-tekst.
+  if(picked.length > 170) picked = picked.slice(0, 170).replace(/\s+\S*$/, '') + ' …';
   return picked;
 }
 

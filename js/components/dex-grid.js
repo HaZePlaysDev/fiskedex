@@ -3,7 +3,7 @@
 import { store, update, useStore, visibleSpecies, isCaught, catchers, memberName, catOrder } from '../store.js';
 import { CATS, COVERS } from '../data.js';
 import { silFor } from '../silhouettes.js';
-import { loadPhotoThumb } from '../db.js';
+import { cachedPhotoThumb, loadPhotoThumb } from '../db.js';
 import { FELLES } from '../config.js';
 
 const html = htm.bind(React.createElement);
@@ -74,6 +74,21 @@ export function DexGrid(){
       const key = s.id + '|' + candidates.map(m=>m+':' + (s.catches[m].hasPhoto?'1':'0')).join(',');
       if(cacheKeys.current[s.id] === key) continue;
       cacheKeys.current[s.id] = key;
+      // Bruk cache med en gang hvis oppstarten allerede har hentet bildene.
+      let cachedUrl = null;
+      let cachedMem = null;
+      for(const mem of candidates){
+        const u = cachedPhotoThumb(s.id, mem);
+        if(u){ cachedUrl = u; cachedMem = mem; break; }
+      }
+      if(cachedUrl){
+        setPhotoUrls(p=>({...p,[s.id]:cachedUrl}));
+        if(cachedMem && s.catches && s.catches[cachedMem] && !s.catches[cachedMem].hasPhoto){
+          update(()=>{ s.catches[cachedMem].hasPhoto = true; });
+        }
+        continue;
+      }
+
       // undefined betyr: vi leter etter bilde. Da viser ikke kortet silhuett først.
       setPhotoUrls(p=>({...p,[s.id]:undefined}));
       (async()=>{

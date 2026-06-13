@@ -25,7 +25,16 @@ export async function fetchAll(){
     sb.from('catches').select('*'),
   ]);
   if(sp.error || me.error || ca.error) throw (sp.error || me.error || ca.error);
-  return { speciesRows: sp.data, memberRows: me.data, catchRows: ca.data };
+
+  // Hent småbilder samtidig med resten. Dette gjør at artskortene får bilder med en gang
+  // når siden åpnes, i stedet for at hvert kort må vente på eget Supabase-kall.
+  let ph = await sb.from('photos').select('species_id,member,thumb,data');
+  if(ph.error && /thumb/i.test(String(ph.error.message||''))){
+    ph = await sb.from('photos').select('species_id,member,data');
+  }
+  if(ph.error) ph = { data: [] };
+
+  return { speciesRows: sp.data, memberRows: me.data, catchRows: ca.data, photoRows: ph.data || [] };
 }
 export async function seedSpecies(rows){
   const r = await sb.from('species').insert(rows).select();
@@ -97,6 +106,20 @@ export async function updateSil(id, sil){
 /* ---------- bilder (base64 i photos-tabellen, cachet lokalt) ---------- */
 const photoCache = new Map();
 const thumbCache = new Map();
+
+export function primePhotoCache(rows){
+  for(const row of rows || []){
+    if(!row || !row.species_id || !row.member) continue;
+    const key = row.species_id + ':' + row.member;
+    if(row.data) photoCache.set(key, row.data);
+    if(row.thumb || row.data) thumbCache.set(key, row.thumb || row.data);
+  }
+}
+
+export function cachedPhotoThumb(id, mem){
+  const key = id + ':' + mem;
+  return thumbCache.has(key) ? thumbCache.get(key) : undefined;
+}
 
 export async function loadPhoto(id, mem){
   const key = id+':'+mem;
