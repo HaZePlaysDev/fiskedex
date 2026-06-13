@@ -324,8 +324,9 @@ export function DetailModal(){
         </div>
         <button className="x" aria-label="Lukk" onClick=${close}>\u00d7</button>
       </div>
-      <div className="modal-body">
+      <div className="modal-body detail-layout">
 
+        <section className="detail-section"><h3>Artsinfo</h3>
         ${info && html`
           <div className="art-info">
             ${info.fredet && html`<span className="ai-badge fredet">⛔ Fredet / kun observasjon</span>`}
@@ -333,6 +334,7 @@ export function DetailModal(){
             <span className="ai-text">${info.info}</span>
             ${(info.fredet || info.min) && html`<span className="ai-disc">Sjekk fiskeridir.no for gjeldende regler.</span>`}
           </div>`}
+        ${!info && html`<p className="muted">Ingen artsinfo ennå.</p>`}
 
         ${canEditInfo && html`
           <div className="art-info edit-info">
@@ -351,7 +353,9 @@ export function DetailModal(){
               <span className=${'savemsg'+(infoSaveMsg?' show':'')}>Lagret ✓</span>
             </div>
           </div>`}
+        </section>
 
+        <section className="detail-section"><h3>Bilder</h3>
         <label className=${'photo-zone'+(photoUrl?' has':'')+(canWriteThisCatch?'':' read-only')} htmlFor=${canWriteThisCatch ? 'photoInput' : null} title=${canWriteThisCatch?'Last opp bilde':(editable && fisher===FELLES?'Gammel Felles-fangst kan bare slettes':'Gjestemodus')}>
           ${photoUrl
             ? html`<img src=${photoUrl} alt="Fangstbilde"/>`
@@ -387,7 +391,9 @@ export function DetailModal(){
                 <img src=${g.url} alt=""/><span>${memberName(g.m)}</span>
               </div>`)}
           </div>`}
+        </section>
 
+        <section className="detail-section"><h3>Fangst</h3>
         <div className="field" style=${{marginTop:'14px'}}>
           <label>Fisker</label>
           <select value=${fisher} onChange=${e=>setFisher(e.target.value)}>
@@ -426,7 +432,12 @@ export function DetailModal(){
                       onChange=${e=>setForm({...form, kommentar:e.target.value})}></textarea></div>
         </div>
 
+        </section>
+
+        <section className="detail-section"><h3>Reaksjoner</h3>
         <div className="reactions"><span>Reaksjoner:</span> ${['🔥','😂','👑','🐟','😮'].map(e=>html`<button onClick=${()=>react(e)}>${e} ${(entry()&&entry().reactions&&entry().reactions[e])||''}</button>`)}</div>
+
+        </section>
 
         <div className="modal-actions">
           ${editable ? html`

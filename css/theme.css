@@ -68,3 +68,17 @@ main{max-width:1060px;margin:0 auto;padding:14px 20px 80px}
 
 /* v7: litt mindre PC-tittel med tydelig overstyring */
 @media (min-width:900px){ body header .head-inner h1.hero-title{font-size:clamp(88px,9.9vw,198px)!important;line-height:.76!important;} }
+
+/* ---------- v11: ryddigere app-oppsett ---------- */
+main{max-width:1200px;padding-bottom:110px}
+.toolbar.main-toolbar{max-width:1200px;gap:12px;align-items:center;justify-content:space-between}
+.main-nav{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+.nav-tab{border:1.5px solid var(--hav);background:rgba(251,250,245,.36);color:var(--hav);padding:8px 14px;border-radius:999px;font-size:13px;font-weight:800;letter-spacing:.02em;transition:background .15s,color .15s,transform .15s}
+.nav-tab:hover{background:#d2e1e2;transform:translateY(-1px)}
+.nav-tab.active{background:var(--hav);color:#f2efe6}
+.dex-tools{max-width:1200px;margin:10px auto 0;padding:0 20px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.dex-tools .search{margin-left:auto}
+.members-bar{max-width:1200px}
+@media (max-width:760px){
+  .toolbar.main-toolbar{justify-content:flex-start}.main-nav{width:100%;overflow-x:auto;flex-wrap:nowrap;padding-bottom:4px}.nav-tab{white-space:nowrap}.dex-tools .search{margin-left:0;max-width:none;flex-basis:100%}
+}

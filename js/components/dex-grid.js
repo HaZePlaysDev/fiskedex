@@ -14,6 +14,10 @@ export function SpeciesCard({ s, photoUrl }){
   const photoLoading = caught && photoUrl === undefined;
   let meta = 'Ikke registrert';
   const hint = !caught ? ((s.min ? 'Kan ha minstemål: '+s.min : '') || (s.info ? s.info.split(/[.!?]/)[0] : 'Trykk for hint og artsinfo')) : '';
+  const reactionSum = catchers(s).reduce((sum,m)=>{
+    const r = (s.catches[m] && s.catches[m].reactions) || {};
+    return sum + Object.values(r).reduce((a,n)=>a+(Number(n)||0),0);
+  },0);
   if(caught){
     if(store.member){
       const c = s.catches[store.member];
@@ -30,7 +34,7 @@ export function SpeciesCard({ s, photoUrl }){
   }
   const open = ()=>update(st=>{ st.detailId = s.id; });
   return html`
-    <div className=${'card' + (caught?'':' uncaught')} role="button" tabIndex="0"
+    <div className=${'card' + (caught?'':' uncaught mystery-locked')} role="button" tabIndex="0"
          onClick=${open}
          onKeyDown=${e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); open(); } }}>
       <div className=${'img' + (photoUrl?'':' empty') + (photoLoading?' loading-photo':'')}>
@@ -44,7 +48,8 @@ export function SpeciesCard({ s, photoUrl }){
         <div className="id">${s.id}</div>
         <div className="name">${s.name}</div>
         <div className="meta">${meta}</div>
-        ${!caught && html`<div className="mystery-hint">❔ ${hint}</div>`}
+        ${reactionSum>0 && html`<div className="card-reacts">🔥 ${reactionSum} reaksjoner</div>`}
+        ${!caught && html`<div className="mystery-hint"><b>??? Mystery-art</b><span>${hint}</span></div>`}
       </div>
       ${caught && html`<div className="stamp">Fanget</div>`}
     </div>`;

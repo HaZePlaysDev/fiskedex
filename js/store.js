@@ -13,7 +13,7 @@ export const store = {
   species: [],          // [{id,name,cat,custom,sil,catches:{medlem:{...}}}]
   members: [],
   member: null,          // valgt fisker (null = alle)
-  view: 'dex',           // dex | stats | map | logg
+  view: 'dashboard',     // dashboard | dex | fangster | map | stats | records | guests
   filterCat: 'ALL',
   filterCaught: null,
   filterPhoto: null,

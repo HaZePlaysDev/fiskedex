@@ -1,16 +1,16 @@
-// Rot-appen: skall (header/verktøylinje), visningsbytte, sanntid og oppstart
+// Rot-appen: skall, dashboard, faner, sanntid og oppstart
 /* global React, ReactDOM, htm */
-import { store, update, useStore, reload, isCaught, memberName, anyModalOpen, catOrder, canEdit, latestCatch } from './store.js';
+import { store, update, useStore, reload, isCaught, anyModalOpen, catOrder, canEdit } from './store.js';
 import { CATS } from './data.js';
 import * as db from './db.js';
 import { fetchWeather } from './weather.js';
 import { DexGrid } from './components/dex-grid.js';
 import { DetailModal } from './components/detail-modal.js';
-import { StatsView, MapView, LogView } from './components/views.js';
+import { DashboardView, StatsView, MapView, LogView, RecordsView, GuestView } from './components/views.js';
 import { LoginGate, AddSpeciesModal, AddMemberModal } from './components/modals.js';
 
 const html = htm.bind(React.createElement);
-const { useEffect, useState } = React;
+const { useEffect } = React;
 
 let rtTimer = null;
 async function init(){
@@ -22,26 +22,64 @@ async function init(){
   fetchWeather();
 }
 
-
-function LatestCatchCard(){
+function MainNav(){
   useStore();
-  const [img, setImg] = useState(null);
-  const row = latestCatch();
-  useEffect(()=>{
-    let alive = true;
-    setImg(null);
-    if(row && row.catch && row.catch.hasPhoto){
-      db.loadPhotoThumb(row.species.id, row.member).then(u=>{ if(alive) setImg(u); });
-    }
-    return ()=>{ alive = false; };
-  }, [row ? row.species.id+'|'+row.member+'|'+row.t : 'none']);
-  if(!row) return null;
-  const c = row.catch;
-  const extra = [c.dato, c.sted, c.vekt, c.lengde].filter(Boolean).join(' · ');
-  return html`<div className="latest-card" onClick=${()=>update(s=>{ s.detailId = row.species.id; })}>
-    <div className="latest-img">${img ? html`<img src=${img} alt=""/>` : html`<span>🐟</span>`}</div>
-    <div className="latest-body"><div className="eyebrow">Siste fangst</div><h3>${row.species.name}</h3>
-      <p><b>${memberName(row.member)}</b>${extra?' · '+extra:''}</p></div>
+  const nav = [
+    ['dashboard','🏠 Dashboard'],
+    ['dex','🐟 Dex'],
+    ['fangster','📜 Fangster'],
+    ['map','🗺️ Kart'],
+    ['stats','📊 Toppliste'],
+    ['records','🏆 Rekorder'],
+    ['guests','👀 Gjester'],
+  ];
+  return html`<nav className="main-nav" aria-label="Hovedmeny">
+    ${nav.map(([key,label])=>html`<button key=${key} className=${'nav-tab'+(store.view===key?' active':'')} onClick=${()=>update(s=>{ s.view = key; })}>${label}</button>`)}
+  </nav>`;
+}
+
+function DexTools(){
+  useStore();
+  const editable = canEdit();
+  const counts = { ALL: store.species.length };
+  for(const c in CATS) counts[c] = store.species.filter(s=>s.cat===c).length;
+  const tabs = [{key:'ALL', name:'Alle', cnt:counts.ALL},
+    ...catOrder().map(c=>({key:c, name:CATS[c].name, cnt:counts[c]||0}))];
+  const pickTab = key => update(s=>{ s.filterCat = key; s.view = 'dex'; });
+
+  return html`<div className="dex-tools">
+    <div className="tabs cat-tabs">
+      ${tabs.map(t=>html`
+        <button key=${t.key} className=${'tab'+(store.filterCat===t.key ? ' active':'')}
+                onClick=${()=>pickTab(t.key)}>${t.name}<span className="cnt">${t.cnt}</span></button>`)}
+    </div>
+    <div className="filter-caught">
+      <button className=${'chip'+(store.filterCaught===true?' active':'')}
+              onClick=${()=>update(s=>{ s.filterCaught = s.filterCaught===true ? null : true; })}>✓ Fanget</button>
+      <button className=${'chip'+(store.filterCaught===false?' active':'')}
+              onClick=${()=>update(s=>{ s.filterCaught = s.filterCaught===false ? null : false; })}>Mangler</button>
+      <button className=${'chip'+(store.filterPhoto===true?' active':'')}
+              onClick=${()=>update(s=>{ s.filterPhoto = s.filterPhoto===true ? null : true; })}>📷 Med bilde</button>
+      <button className=${'chip'+(store.filterMystery?' active':'')}
+              onClick=${()=>update(s=>{ s.filterMystery = !s.filterMystery; })}>❔ Mystery</button>
+    </div>
+    <div className="search">🔎<input type="search" placeholder="Søk etter art, sted eller kommentar …" aria-label="Søk"
+         value=${store.q} onChange=${e=>update(s=>{ s.q = e.target.value.trim().toLowerCase(); })}/></div>
+    ${editable && html`<button className="btn-add" onClick=${()=>update(s=>{ s.addOpen = true; })}>+ Ny art</button>`}
+  </div>`;
+}
+
+function MembersBar(){
+  useStore();
+  const editable = canEdit();
+  return html`<div className="members-bar">
+    <span className="mlabel">Fisker:</span>
+    <button className=${'mchip'+(store.member===null?' active':'')}
+            onClick=${()=>update(s=>{ s.member = null; })}>👥 Alle</button>
+    ${store.members.map(m=>html`
+      <button key=${m} className=${'mchip'+(store.member===m?' active':'')}
+              onClick=${()=>update(s=>{ s.member = m; })}>${m}</button>`)}
+    ${editable && html`<button className="mchip add" onClick=${()=>update(s=>{ s.memberOpen = true; })}>+ Fisker</button>`}
   </div>`;
 }
 
@@ -52,7 +90,7 @@ function App(){
   useEffect(()=>{
     (async ()=>{
       if(await db.hasSession()){
-        update(s=>{ s.authed = true; });
+        update(s=>{ s.authed = true; s.guest = false; });
         await init();
       }
     })();
@@ -91,18 +129,10 @@ function App(){
   }
 
   const editable = canEdit();
-
-  const counts = { ALL: store.species.length };
-  for(const c in CATS) counts[c] = store.species.filter(s=>s.cat===c).length;
-  const tabs = [{key:'ALL', name:'Alle', cnt:counts.ALL},
-    ...catOrder().map(c=>({key:c, name:CATS[c].name, cnt:counts[c]||0}))];
-
   const tot = store.species.length;
   const caughtCount = store.species.filter(isCaught).length;
   const pct = tot ? (100*caughtCount/tot) : 0;
 
-  const pickTab = key => update(s=>{ s.filterCat = key; s.view = 'dex'; });
-  const toggleView = v => update(s=>{ s.view = s.view===v ? 'dex' : v; });
   const openFiskedex = ()=>{
     update(s=>{ s.coverClosing = true; });
     setTimeout(()=>update(s=>{ s.showCover = false; s.coverClosing = false; }), 1250);
@@ -112,10 +142,10 @@ function App(){
 
     ${store.showCover && html`
       <div id="cover" className=${store.coverClosing ? 'hide' : ''}>
-        <img src="img/forside.jpg" alt="Karm\u00f8y Fishing Championship-plakat"/>
-        <h2>KARM\u00d8Y FISHING<br/>CHAMPIONSHIP</h2>
-        <p>Under overflaten finnes en verden de fleste aldri ser. Noen arter er vanlige. Andre er legender. V\u00e5rt oppdrag er \u00e5 finne dem alle.</p>
-        <button className="btn-add" onClick=${openFiskedex}>\u00c5pne FiskeDex</button>
+        <img src="img/forside.jpg" alt="Karmøy Fishing Championship-plakat"/>
+        <h2>KARMØY FISHING<br/>CHAMPIONSHIP</h2>
+        <p>Under overflaten finnes en verden de fleste aldri ser. Noen arter er vanlige. Andre er legender. Vårt oppdrag er å finne dem alle.</p>
+        <button className="btn-add" onClick=${openFiskedex}>Åpne FiskeDex</button>
       </div>`}
 
     <header>
@@ -126,9 +156,9 @@ function App(){
         <path d="M0,80 C260,60 500,98 720,80 C940,62 1060,100 1200,82" fill="none" stroke="#2a4d5c" strokeWidth="1"/>
       </svg>
       <div className="head-inner">
-        <div className="eyebrow">Haugalandet \u00b7 Under overflaten</div>
-        <h1 className="hero-title">KARM<span className="o">\u00d8</span>Y FISHING CHAMPIONSHIP</h1>
-        <div className="tagline">V\u00e5rt oppdrag er \u00e5 finne dem alle \u2013 \u00e9n art om gangen. ${editable ? 'Trykk p\u00e5 en art for \u00e5 registrere fangst.' : 'Gjestemodus: du kan se fangstene, men ikke endre noe.'}</div>
+        <div className="eyebrow">Haugalandet · Under overflaten</div>
+        <h1 className="hero-title">KARM<span className="o">Ø</span>Y FISHING CHAMPIONSHIP</h1>
+        <div className="tagline">${editable ? 'Konkurranse-dashboard, fangster, kart og rekorder for gjengen.' : 'Gjestemodus: du kan se fangstene, men ikke endre noe.'}</div>
         <div className="progress-wrap">
           <div className="progress-num"><span>${caughtCount}</span>/<span>${tot}</span><small>ARTER KARTLAGT</small></div>
           <div className="progress-bar"><div className="progress-fill" style=${{width: pct+'%'}}></div></div>
@@ -137,52 +167,35 @@ function App(){
     </header>
 
     ${store.weather && html`<div className="weather-bar" dangerouslySetInnerHTML=${{__html: store.weather}}/>`}
-    ${store.loaded && html`<div className="latest-wrap"><${LatestCatchCard}/></div>`}
 
-    <div className="toolbar">
-      <div className="tabs">
-        ${tabs.map(t=>html`
-          <button key=${t.key} className=${'tab'+(store.filterCat===t.key && store.view==='dex' ? ' active':'')}
-                  onClick=${()=>pickTab(t.key)}>${t.name}<span className="cnt">${t.cnt}</span></button>`)}
-      </div>
-      <div className="filter-caught">
-        <button className=${'chip'+(store.filterCaught===true?' active':'')}
-                onClick=${()=>update(s=>{ s.filterCaught = s.filterCaught===true ? null : true; })}>\u2713 Fanget</button>
-        <button className=${'chip'+(store.filterCaught===false?' active':'')}
-                onClick=${()=>update(s=>{ s.filterCaught = s.filterCaught===false ? null : false; })}>Mangler</button>
-        <button className=${'chip'+(store.filterPhoto===true?' active':'')}
-                onClick=${()=>update(s=>{ s.filterPhoto = s.filterPhoto===true ? null : true; })}>📷 Med bilde</button>
-        <button className=${'chip'+(store.filterMystery?' active':'')}
-                onClick=${()=>update(s=>{ s.filterMystery = !s.filterMystery; })}>❔ Mystery</button>
-      </div>
-      <div className="search">🔎<input type="search" placeholder="S\u00f8k etter art \u2026" aria-label="S\u00f8k"
-           value=${store.q} onChange=${e=>update(s=>{ s.q = e.target.value.trim().toLowerCase(); })}/></div>
-      ${editable && html`<button className="btn-add" onClick=${()=>update(s=>{ s.addOpen = true; })}>+ Ny art</button>`}
-      <button className="tab" title="Hent kompisenes siste fangster" onClick=${()=>reload(false)}>\u21bb Oppdater</button>
-      <button className=${'tab'+(store.view==='stats'?' active':'')} onClick=${()=>toggleView('stats')}>📊 Toppliste</button>
-      <button className=${'tab'+(store.view==='map'?' active':'')} onClick=${()=>toggleView('map')}>🗺\uFE0F Kart</button>
-      <button className=${'tab'+(store.view==='logg'?' active':'')} onClick=${()=>toggleView('logg')}>📜 Logg</button>
+    <div className="toolbar main-toolbar">
+      <${MainNav}/>
+      <button className="tab" title="Hent kompisenes siste fangster" onClick=${()=>reload(false)}>↻ Oppdater</button>
       ${store.guest && html`<button className="tab guest-login" onClick=${leaveGuest}>Logg inn for å redigere</button>`}
     </div>
 
-    <div className="members-bar">
-      <span className="mlabel">Fisker:</span>
-      <button className=${'mchip'+(store.member===null?' active':'')}
-              onClick=${()=>update(s=>{ s.member = null; })}>👥 Alle</button>
-      ${store.members.map(m=>html`
-        <button key=${m} className=${'mchip'+(store.member===m?' active':'')}
-                onClick=${()=>update(s=>{ s.member = m; })}>${m}</button>`)}
-      ${editable && html`<button className="mchip add" onClick=${()=>update(s=>{ s.memberOpen = true; })}>+ Fisker</button>`}
-    </div>
+    <${MembersBar}/>
+    ${store.view==='dex' && html`<${DexTools}/>`}
 
     <main>
       ${!store.loaded
-        ? html`<div className="empty-state">Henter dexen \u2026</div>`
-        : store.view==='stats' ? html`<${StatsView}/>`
-        : store.view==='map'   ? html`<${MapView}/>`
-        : store.view==='logg'  ? html`<${LogView}/>`
+        ? html`<div className="empty-state">Henter dexen …</div>`
+        : store.view==='dashboard' ? html`<${DashboardView}/>`
+        : store.view==='stats'     ? html`<${StatsView}/>`
+        : store.view==='records'   ? html`<${RecordsView}/>`
+        : store.view==='map'       ? html`<${MapView}/>`
+        : store.view==='fangster'  ? html`<${LogView}/>`
+        : store.view==='guests'    ? html`<${GuestView}/>`
         : html`<${DexGrid}/>`}
     </main>
+
+    <div className="mobile-bottom-nav">
+      <button className=${store.view==='dashboard'?'active':''} onClick=${()=>update(s=>{s.view='dashboard';})}>🏠<span>Start</span></button>
+      <button className=${store.view==='dex'?'active':''} onClick=${()=>update(s=>{s.view='dex';})}>🐟<span>Dex</span></button>
+      <button className=${store.view==='fangster'?'active':''} onClick=${()=>update(s=>{s.view='fangster';})}>📜<span>Fangster</span></button>
+      <button className=${store.view==='map'?'active':''} onClick=${()=>update(s=>{s.view='map';})}>🗺️<span>Kart</span></button>
+      <button className=${store.view==='stats'?'active':''} onClick=${()=>update(s=>{s.view='stats';})}>📊<span>Toppen</span></button>
+    </div>
 
     ${store.detailId && html`<${DetailModal}/>`}
     <${AddSpeciesModal}/>
