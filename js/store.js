@@ -16,6 +16,8 @@ export const store = {
   view: 'dex',           // dex | stats | map | logg
   filterCat: 'ALL',
   filterCaught: null,
+  filterPhoto: null,
+  filterMystery: false,
   q: '',
   detailId: null,
   addOpen: false,
@@ -74,6 +76,8 @@ export async function reload(quiet){
         dato:c.dato||'', sted:c.sted||'', lengde:c.lengde||'', vekt:c.vekt||'',
         kommentar:c.kommentar||'', hasPhoto:!!c.has_photo || photoSet.has(c.species_id + ':' + c.member),
         lat:(c.lat!=null?c.lat:null), lng:(c.lng!=null?c.lng:null), created:c.created_at||'',
+        weather:c.weather_summary||'', tide:c.tide_summary||'',
+        reactions:c.reactions||{},
       };
     }
     update(s=>{
@@ -114,7 +118,16 @@ export function visibleSpecies(){
     const c = isCaught(s);
     if(store.filterCaught===true && !c) return false;
     if(store.filterCaught===false && c) return false;
-    if(store.q && !s.name.toLowerCase().includes(store.q) && !s.id.toLowerCase().includes(store.q)) return false;
+    const hasPhoto = catchers(s).some(m=>s.catches[m] && s.catches[m].hasPhoto);
+    if(store.filterPhoto===true && !hasPhoto) return false;
+    if(store.filterPhoto===false && hasPhoto) return false;
+    if(store.filterMystery && c) return false;
+    if(store.q){
+      const q = store.q.toLowerCase();
+      const catchText = catchers(s).map(m=>{ const e=s.catches[m]||{}; return [memberName(m),e.sted,e.dato,e.vekt,e.lengde,e.kommentar,e.weather,e.tide].join(' '); }).join(' ').toLowerCase();
+      const infoText = [s.info,s.min].join(' ').toLowerCase();
+      if(!s.name.toLowerCase().includes(q) && !s.id.toLowerCase().includes(q) && !catchText.includes(q) && !infoText.includes(q)) return false;
+    }
     return true;
   });
 }
@@ -126,4 +139,18 @@ export function canEdit(){
 }
 export function anyModalOpen(){
   return !!(store.detailId || store.addOpen || store.memberOpen);
+}
+
+export function latestCatch(){
+  let best = null;
+  for(const s of store.species){
+    for(const m of catchers(s)){
+      if(store.member && m!==store.member) continue;
+      const c = s.catches[m];
+      const t = c.created || c.dato || '';
+      const row = {species:s, member:m, catch:c, t};
+      if(!best || row.t > best.t) best = row;
+    }
+  }
+  return best;
 }

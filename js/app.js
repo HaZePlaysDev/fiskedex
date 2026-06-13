@@ -1,6 +1,6 @@
 // Rot-appen: skall (header/verktøylinje), visningsbytte, sanntid og oppstart
 /* global React, ReactDOM, htm */
-import { store, update, useStore, reload, isCaught, memberName, anyModalOpen, catOrder, canEdit } from './store.js';
+import { store, update, useStore, reload, isCaught, memberName, anyModalOpen, catOrder, canEdit, latestCatch } from './store.js';
 import { CATS } from './data.js';
 import * as db from './db.js';
 import { fetchWeather } from './weather.js';
@@ -10,7 +10,7 @@ import { StatsView, MapView, LogView } from './components/views.js';
 import { LoginGate, AddSpeciesModal, AddMemberModal } from './components/modals.js';
 
 const html = htm.bind(React.createElement);
-const { useEffect } = React;
+const { useEffect, useState } = React;
 
 let rtTimer = null;
 async function init(){
@@ -20,6 +20,29 @@ async function init(){
     rtTimer = setTimeout(()=>{ if(!anyModalOpen()) reload(true); }, 600);
   });
   fetchWeather();
+}
+
+
+function LatestCatchCard(){
+  useStore();
+  const [img, setImg] = useState(null);
+  const row = latestCatch();
+  useEffect(()=>{
+    let alive = true;
+    setImg(null);
+    if(row && row.catch && row.catch.hasPhoto){
+      db.loadPhotoThumb(row.species.id, row.member).then(u=>{ if(alive) setImg(u); });
+    }
+    return ()=>{ alive = false; };
+  }, [row ? row.species.id+'|'+row.member+'|'+row.t : 'none']);
+  if(!row) return null;
+  const c = row.catch;
+  const extra = [c.dato, c.sted, c.vekt, c.lengde].filter(Boolean).join(' · ');
+  return html`<div className="latest-card" onClick=${()=>update(s=>{ s.detailId = row.species.id; })}>
+    <div className="latest-img">${img ? html`<img src=${img} alt=""/>` : html`<span>🐟</span>`}</div>
+    <div className="latest-body"><div className="eyebrow">Siste fangst</div><h3>${row.species.name}</h3>
+      <p><b>${memberName(row.member)}</b>${extra?' · '+extra:''}</p></div>
+  </div>`;
 }
 
 function App(){
@@ -114,6 +137,7 @@ function App(){
     </header>
 
     ${store.weather && html`<div className="weather-bar" dangerouslySetInnerHTML=${{__html: store.weather}}/>`}
+    ${store.loaded && html`<div className="latest-wrap"><${LatestCatchCard}/></div>`}
 
     <div className="toolbar">
       <div className="tabs">
@@ -126,6 +150,10 @@ function App(){
                 onClick=${()=>update(s=>{ s.filterCaught = s.filterCaught===true ? null : true; })}>\u2713 Fanget</button>
         <button className=${'chip'+(store.filterCaught===false?' active':'')}
                 onClick=${()=>update(s=>{ s.filterCaught = s.filterCaught===false ? null : false; })}>Mangler</button>
+        <button className=${'chip'+(store.filterPhoto===true?' active':'')}
+                onClick=${()=>update(s=>{ s.filterPhoto = s.filterPhoto===true ? null : true; })}>📷 Med bilde</button>
+        <button className=${'chip'+(store.filterMystery?' active':'')}
+                onClick=${()=>update(s=>{ s.filterMystery = !s.filterMystery; })}>❔ Mystery</button>
       </div>
       <div className="search">🔎<input type="search" placeholder="S\u00f8k etter art \u2026" aria-label="S\u00f8k"
            value=${store.q} onChange=${e=>update(s=>{ s.q = e.target.value.trim().toLowerCase(); })}/></div>

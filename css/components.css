@@ -193,3 +193,22 @@ label.btn{display:inline-block;text-align:center}
 button:disabled{opacity:.6;cursor:wait}
 
 @media (max-width:560px){#cover h2{font-size:clamp(30px,10vw,48px)}}
+
+/* ---------- v10 ekstra funksjoner ---------- */
+.latest-wrap{max-width:1060px;margin:14px auto 0;padding:0 20px}
+.latest-card{display:flex;gap:14px;align-items:center;background:var(--papir);border:1.5px solid var(--linje);border-radius:12px;padding:10px 12px;cursor:pointer;box-shadow:0 4px 12px rgba(18,43,54,.08)}
+.latest-card:hover{transform:translateY(-1px);box-shadow:0 8px 18px rgba(18,43,54,.12)}
+.latest-img{width:86px;height:64px;border-radius:9px;overflow:hidden;background:#dfe9e9;display:flex;align-items:center;justify-content:center;flex:none;font-size:28px}
+.latest-img img{width:100%;height:100%;object-fit:cover}
+.latest-body h3{font-family:'Staatliches',sans-serif;font-size:28px;letter-spacing:.03em;line-height:1;margin:2px 0;color:var(--hav)}
+.latest-body p{font-size:13px;color:var(--blek)}
+.mystery-hint{font-size:11.5px;color:#6f8389;margin-top:5px;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.readonly-box{border:1.5px solid var(--linje);background:#fff;border-radius:8px;padding:9px 11px;color:var(--blek);font-size:13px}
+.reactions{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-top:14px;padding-top:10px;border-top:1px dashed var(--linje);font-size:13px;color:var(--blek)}
+.reactions button{border:1.5px solid var(--linje);background:#fff;border-radius:99px;padding:5px 10px;font-size:14px}
+.reactions button:hover{border-color:var(--boye)}
+.mini-x{position:absolute;top:2px;right:2px;background:rgba(12,31,40,.8);color:#fff;border:none;border-radius:50%;width:22px;height:22px;line-height:20px;font-size:15px}
+.gal-thumb{position:relative}
+.gal-thumb img{cursor:pointer}
+.log-react{font-size:12px;color:var(--blek);margin-left:auto;padding-left:8px;white-space:nowrap}
+@media (max-width:560px){.latest-card{align-items:flex-start}.latest-img{width:74px;height:58px}.latest-body h3{font-size:23px}}

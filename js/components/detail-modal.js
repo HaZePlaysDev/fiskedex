@@ -24,6 +24,8 @@ export function DetailModal(){
   const [curPos, setCurPos] = useState(null);
   const [photoUrl, setPhotoUrl] = useState(null);
   const [gallery, setGallery] = useState([]);
+  const [galleryRows, setGalleryRows] = useState([]);
+  const [photoDelArmed, setPhotoDelArmed] = useState(false);
   const [saveMsg, setSaveMsg] = useState(false);
   const [infoSaveMsg, setInfoSaveMsg] = useState(false);
   const [delArmed, setDelArmed] = useState(false);
@@ -78,6 +80,8 @@ export function DetailModal(){
     }
 
     setGallery([]);
+    setGalleryRows([]);
+    if(c && m){ db.fetchGallery(id, m).then(rows=>{ if(store.detailId===id && fisherRef.current===m) setGalleryRows(rows); }); }
     const allCatchers = catchers(s);
     if(allCatchers.length>1){
       allCatchers.forEach(async m2=>{
@@ -125,6 +129,7 @@ export function DetailModal(){
         vekt:form.vekt.trim(), kommentar:form.kommentar.trim(),
         hasPhoto:!!prev.hasPhoto, created:prev.created||'',
         lat:(curPos?curPos.lat:null), lng:(curPos?curPos.lng:null),
+        weather:prev.weather || store.weather.replace(/<[^>]+>/g,''), tide:prev.tide || '', reactions:prev.reactions || {},
       };
       update(()=>{ s.catches = s.catches||{}; s.catches[mem] = e; });
       ok = await db.upsertCatch(s.id, mem, e);
@@ -185,6 +190,46 @@ export function DetailModal(){
         ? 'Bildeformatet støttes ikke \u2013 prøv JPG eller PNG'
         : 'Kunne ikke lese bildet \u2013 prøv et annet');
     }
+  }
+
+
+  async function deleteMainPhoto(){
+    if(!editable){ readonlyToast(); return; }
+    if(!validFisherForEdit()) return;
+    if(!photoDelArmed){ setPhotoDelArmed(true); setTimeout(()=>setPhotoDelArmed(false), 4000); return; }
+    setPhotoDelArmed(false);
+    const ok = await db.deletePhoto(s.id, fisher);
+    if(ok){
+      update(()=>{ if(s.catches && s.catches[fisher]) s.catches[fisher].hasPhoto = false; });
+      setPhotoUrl(null);
+      await db.upsertCatch(s.id, fisher, {...(s.catches[fisher]||{}), hasPhoto:false});
+      toast('Bildet ble slettet');
+    } else toast('Kunne ikke slette bildet');
+  }
+
+  async function onGalleryPhoto(ev){
+    if(!editable){ ev.target.value=''; readonlyToast(); return; }
+    if(!validFisherForEdit()){ ev.target.value=''; return; }
+    const f = ev.target.files[0]; ev.target.value=''; if(!f) return;
+    try{
+      const img = await compressImage(f);
+      const row = await db.addGalleryPhoto(s.id, fisher, img.full, img.thumb);
+      if(row){ setGalleryRows(rows=>[...rows,row]); toast('Ekstra bilde lagt til'); }
+      else toast('Kunne ikke lagre ekstra bilde. Kjør nyeste SQL først.');
+    }catch(e){ toast('Kunne ikke lese bildet'); }
+  }
+
+  async function delGallery(rowId){
+    if(!editable){ readonlyToast(); return; }
+    if(await db.deleteGalleryPhoto(rowId)){ setGalleryRows(rows=>rows.filter(r=>r.id!==rowId)); toast('Ekstra bilde slettet'); }
+  }
+
+  async function react(emoji){
+    if(!entry()) return;
+    const reactions = {...(entry().reactions||{})};
+    reactions[emoji] = (reactions[emoji]||0) + 1;
+    update(()=>{ s.catches[fisher].reactions = reactions; });
+    await db.saveReactions(s.id, fisher, reactions);
   }
 
   async function onSil(ev){
@@ -317,9 +362,22 @@ export function DetailModal(){
         <div className="flex flex-wrap gap-2 mt-2">
           ${photoUrl && html`<button className="btn ghost" style=${smallBtn}
                 onClick=${()=>update(st=>{ st.lightboxUrl = photoUrl; })}>🔍 Vis bildet i full størrelse</button>`}
+          ${photoUrl && canWriteThisCatch && html`<button className="btn ghost" style=${photoDelArmed ? {...smallBtn, background:'var(--boye)', color:'#fff'} : smallBtn} onClick=${deleteMainPhoto}>${photoDelArmed?'Sikker?':'🗑 Slett hovedbilde'}</button>`}
+          ${canWriteThisCatch && html`<label className="btn ghost" htmlFor="galleryInput" style=${smallBtn}>➕ Ekstra bilde</label>`}
+          ${canWriteThisCatch && html`<input type="file" id="galleryInput" accept="image/*" className="vh" onChange=${onGalleryPhoto}/>`}
           ${editable && html`<label className="btn ghost" htmlFor="silInput" style=${smallBtn}>✂ Lag silhuett fra et bilde</label>`}
           ${editable && html`<input type="file" id="silInput" accept="image/*" className="vh" onChange=${onSil}/>`}
         </div>
+
+        ${galleryRows.length>0 && html`
+          <div className="photo-gallery">
+            <span className="gal-lbl">Ekstra bilder av denne fangsten</span>
+            ${galleryRows.map(g=>html`
+              <div key=${g.id} className="gal-thumb">
+                <img src=${g.thumb || g.data} alt="" onClick=${()=>update(st=>{ st.lightboxUrl = g.data; })}/><span>Ekstra</span>
+                ${canWriteThisCatch && html`<button className="mini-x" onClick=${()=>delGallery(g.id)}>×</button>`}
+              </div>`)}
+          </div>`}
 
         ${gallery.length>0 && html`
           <div className="photo-gallery">
@@ -362,10 +420,13 @@ export function DetailModal(){
                   style=${{fontSize:'12px', padding:'6px 10px'}} onClick=${()=>setCurPos(null)}>\u2715 Fjern</button>`}
             </div>
           </div>
+          ${(form.weather || (entry() && entry().weather)) && html`<div className="field full"><label>Vær da fangsten ble lagret</label><div className="readonly-box">${(entry()&&entry().weather)||form.weather}</div></div>`}
           <div className="field full"><label>Kommentarer</label>
             <textarea disabled=${!canWriteThisCatch} value=${form.kommentar} placeholder="Agn, vær, historien bak …"
                       onChange=${e=>setForm({...form, kommentar:e.target.value})}></textarea></div>
         </div>
+
+        <div className="reactions"><span>Reaksjoner:</span> ${['🔥','😂','👑','🐟','😮'].map(e=>html`<button onClick=${()=>react(e)}>${e} ${(entry()&&entry().reactions&&entry().reactions[e])||''}</button>`)}</div>
 
         <div className="modal-actions">
           ${editable ? html`

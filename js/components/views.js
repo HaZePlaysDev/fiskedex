@@ -172,6 +172,7 @@ export function MapView(){
         if(store.member && m!==store.member) continue;
         const c = s.catches[m];
         if(c.lat!=null && c.lng!=null){
+          L.circle([c.lat,c.lng],{radius:260,color:'#e8612c',fillOpacity:.12,weight:1}).addTo(map);
           L.marker([c.lat,c.lng]).addTo(map)
             .bindPopup(`<b>${esc(s.name)}</b><br>${esc(memberName(m))}${c.dato?' \u00b7 '+esc(c.dato):''}${c.vekt?'<br>\u2696\uFE0F '+esc(c.vekt):''}${c.sted?'<br>\u{1F4CD} '+esc(c.sted):''}`);
           pts.push([c.lat,c.lng]);
@@ -184,10 +185,10 @@ export function MapView(){
 
   return html`
   <div className="stats-card" style=${{marginTop:'18px'}}>
-    <h3>Fangstkart</h3>
+    <h3>Fangstkart + heatmap</h3>
     <div id="mapBox" style=${{height:'62vh', borderRadius:'8px', overflow:'hidden'}}></div>
     <p style=${{fontSize:'12.5px', color:'var(--blek)', marginTop:'8px'}}>
-      Posisjoner legges til i artskortet med \u{1F4CD}-knappen.
+      Oransje sirkler viser fangst-tetthet/heatmap. Posisjoner legges til i artskortet med \u{1F4CD}-knappen.
       Viser ${store.member ? memberName(store.member)+'s' : 'alle'} fangster.
     </p>
   </div>`;
@@ -207,7 +208,7 @@ export function LogView(){
   const shown = rows.slice(0,150);
 
   const dateOf = r => r.c.dato || (r.c.created||'').slice(0,10) || '?';
-  const extraOf = r => [r.c.sted?'ved '+r.c.sted:'', r.c.vekt||'', r.c.lengde||''].filter(Boolean).join(' \u00b7 ');
+  const extraOf = r => [r.c.sted?'ved '+r.c.sted:'', r.c.vekt||'', r.c.lengde||'', r.c.weather||''].filter(Boolean).join(' \u00b7 ');
   async function showPhoto(r, ev){
     ev.stopPropagation();
     const url = await db.loadPhoto(r.s.id, r.m);
@@ -223,6 +224,7 @@ export function LogView(){
         <span className="log-date">${dateOf(r)}</span>
         <span className="log-text"><b>${memberName(r.m)}</b> fanget <b>${r.s.name}</b>${extraOf(r)?' \u2013 '+extraOf(r):''}</span>
         ${r.c.hasPhoto && html`<button className="log-cam" title="Se bildet" onClick=${e=>showPhoto(r,e)}>📷</button>`}
+        ${r.c.reactions && Object.keys(r.c.reactions).length>0 && html`<span className="log-react">${Object.entries(r.c.reactions).map(([e,n])=>e+n).join(' ')}</span>`}
       </div>`)}
   </div>`;
 }

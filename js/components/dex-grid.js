@@ -13,6 +13,7 @@ export function SpeciesCard({ s, photoUrl }){
   const caught = isCaught(s);
   const photoLoading = caught && photoUrl === undefined;
   let meta = 'Ikke registrert';
+  const hint = !caught ? ((s.min ? 'Kan ha minstemål: '+s.min : '') || (s.info ? s.info.split(/[.!?]/)[0] : 'Trykk for hint og artsinfo')) : '';
   if(caught){
     if(store.member){
       const c = s.catches[store.member];
@@ -43,6 +44,7 @@ export function SpeciesCard({ s, photoUrl }){
         <div className="id">${s.id}</div>
         <div className="name">${s.name}</div>
         <div className="meta">${meta}</div>
+        ${!caught && html`<div className="mystery-hint">❔ ${hint}</div>`}
       </div>
       ${caught && html`<div className="stamp">Fanget</div>`}
     </div>`;

@@ -44,15 +44,22 @@ export async function seedSpecies(rows){
 
 /* ---------- skriving ---------- */
 export async function upsertCatch(id, mem, e){
-  const r = await sb.from('catches').upsert({
+  const row = {
     species_id:id, member:mem, dato:e.dato||'', sted:e.sted||'',
     lengde:e.lengde||'', vekt:e.vekt||'', kommentar:e.kommentar||'',
     has_photo:!!e.hasPhoto, lat:(e.lat!=null?e.lat:null), lng:(e.lng!=null?e.lng:null),
-  });
+    weather_summary:e.weather||'', tide_summary:e.tide||'', reactions:e.reactions||{},
+  };
+  let r = await sb.from('catches').upsert(row);
+  if(r.error && /weather_summary|tide_summary|reactions/i.test(String(r.error.message||''))){
+    const {weather_summary, tide_summary, reactions, ...oldRow} = row;
+    r = await sb.from('catches').upsert(oldRow);
+  }
   return !r.error;
 }
 export async function removeCatch(id, mem){
   await sb.from('photos').delete().match({species_id:id, member:mem});
+  await sb.from('catch_gallery').delete().match({species_id:id, member:mem});
   const r = await sb.from('catches').delete().match({species_id:id, member:mem});
   photoCache.delete(id+':'+mem); thumbCache.delete(id+':'+mem);
   return !r.error;
@@ -143,6 +150,12 @@ export async function loadPhotoThumb(id, mem){
   return url;
 }
 
+export async function deletePhoto(id, mem){
+  const r = await sb.from('photos').delete().match({species_id:id, member:mem});
+  if(!r.error){ photoCache.delete(id+':'+mem); thumbCache.delete(id+':'+mem); }
+  return !r.error;
+}
+
 export async function savePhoto(id, mem, dataUrl, thumbUrl){
   const row = {species_id:id, member:mem, data:dataUrl, thumb:thumbUrl || dataUrl};
   let r = await sb.from('photos').upsert(row);
@@ -162,6 +175,24 @@ export async function fetchAllPhotos(){
   return r.error ? null : r.data;
 }
 
+export async function fetchGallery(id, mem){
+  const r = await sb.from('catch_gallery').select('*').match({species_id:id, member:mem}).order('created_at');
+  return r.error ? [] : (r.data || []);
+}
+export async function addGalleryPhoto(id, mem, dataUrl, thumbUrl){
+  const r = await sb.from('catch_gallery').insert({species_id:id, member:mem, data:dataUrl, thumb:thumbUrl || dataUrl}).select().single();
+  return r.error ? null : r.data;
+}
+export async function deleteGalleryPhoto(rowId){
+  const r = await sb.from('catch_gallery').delete().eq('id', rowId);
+  return !r.error;
+}
+
+export async function saveReactions(id, mem, reactions){
+  const r = await sb.from('catches').update({reactions:reactions||{}}).match({species_id:id, member:mem});
+  return !r.error;
+}
+
 export async function savePhotoThumb(id, mem, thumbUrl){
   const r = await sb.from('photos').update({thumb:thumbUrl}).match({species_id:id, member:mem});
   if(!r.error) thumbCache.set(id+':'+mem, thumbUrl);
@@ -175,6 +206,7 @@ export function subscribeRealtime(onChange){
       .on('postgres_changes',{event:'*',schema:'public',table:'catches'},onChange)
       .on('postgres_changes',{event:'*',schema:'public',table:'species'},onChange)
       .on('postgres_changes',{event:'*',schema:'public',table:'members'},onChange)
+      .on('postgres_changes',{event:'*',schema:'public',table:'catch_gallery'},onChange)
       .subscribe();
   }catch(e){ console.warn('realtime utilgjengelig', e); }
 }
