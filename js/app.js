@@ -82,7 +82,7 @@ function App(){
   const toggleView = v => update(s=>{ s.view = s.view===v ? 'dex' : v; });
   const openFiskedex = ()=>{
     update(s=>{ s.coverClosing = true; });
-    setTimeout(()=>update(s=>{ s.showCover = false; s.coverClosing = false; }), 460);
+    setTimeout(()=>update(s=>{ s.showCover = false; s.coverClosing = false; }), 1250);
   };
 
   return html`<${React.Fragment}>
