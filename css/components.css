@@ -117,10 +117,12 @@
 #cover{position:fixed;inset:0;background:var(--hav-dyp);z-index:300;display:flex;flex-direction:column;
   align-items:center;justify-content:center;gap:16px;padding:24px;text-align:center;transition:opacity 1.25s ease,transform 1.25s ease;overflow-y:auto}
 #cover.hide{opacity:0;transform:scale(1.015);pointer-events:none}
-#cover img{max-width:min(86vw,440px);max-height:52vh;border-radius:12px;border:3px solid #f4f1e6;box-shadow:0 20px 60px rgba(0,0,0,.5);animation:coverPosterRise .95s cubic-bezier(.2,.8,.2,1) both;will-change:transform}
-@keyframes coverPosterRise{from{transform:translateY(46px)}to{transform:translateY(0)}}
-#cover h2{font-family:'Staatliches',sans-serif;color:#f4f1e6;font-size:clamp(34px,7vw,86px);letter-spacing:.04em;font-weight:400;line-height:.9}
-#cover p{color:#b9c9cc;font-size:14px;max-width:430px}
+#cover > *{animation:coverIntroRise 1.55s cubic-bezier(.16,.84,.22,1) both;will-change:transform,opacity}
+#cover img{max-width:min(86vw,440px);max-height:52vh;border-radius:12px;border:3px solid #f4f1e6;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+#cover h2{font-family:'Staatliches',sans-serif;color:#f4f1e6;font-size:clamp(34px,7vw,86px);letter-spacing:.04em;font-weight:400;line-height:.9;animation-delay:.12s}
+#cover p{color:#b9c9cc;font-size:14px;max-width:430px;animation-delay:.24s}
+#cover .btn-add{animation-delay:.36s}
+@keyframes coverIntroRise{from{opacity:0;transform:translateY(96px)}to{opacity:1;transform:translateY(0)}}
 /* ---------- fiskere ---------- */
 .members-bar{max-width:1060px;margin:0 auto;padding:6px 20px 0;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 .mlabel{font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--blek);margin-right:2px}
