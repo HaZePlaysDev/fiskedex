@@ -184,11 +184,6 @@ label.btn{display:inline-block;text-align:center}
 .edit-info{align-items:stretch}
 .edit-info .field{flex:1 1 180px}
 .edit-info .field.full{flex-basis:100%}
-@media (max-width:560px){
-  header{padding-top:38px;padding-bottom:30px}
-  h1{font-size:clamp(44px,15vw,68px)}
-}
-
 /* bilde venter: ikke vis silhuett mens fangstbildet lastes */
 .card .img.loading-photo{filter:none;background:#eef3f3}
 .photo-wait{font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.08em;color:var(--blek);background:rgba(251,250,245,.86);border:1px solid var(--linje);border-radius:999px;padding:6px 10px}

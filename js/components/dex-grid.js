@@ -3,7 +3,7 @@
 import { store, update, useStore, visibleSpecies, isCaught, catchers, memberName, catOrder } from '../store.js';
 import { CATS, COVERS } from '../data.js';
 import { silFor } from '../silhouettes.js';
-import { loadPhoto } from '../db.js';
+import { loadPhotoThumb } from '../db.js';
 import { FELLES } from '../config.js';
 
 const html = htm.bind(React.createElement);
@@ -80,7 +80,7 @@ export function DexGrid(){
         let url = null;
         let foundMem = null;
         for(const mem of candidates){
-          url = await loadPhoto(s.id, mem);
+          url = await loadPhotoThumb(s.id, mem);
           if(url){ foundMem = mem; break; }
         }
         if(alive){

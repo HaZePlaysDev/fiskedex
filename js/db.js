@@ -45,7 +45,7 @@ export async function upsertCatch(id, mem, e){
 export async function removeCatch(id, mem){
   await sb.from('photos').delete().match({species_id:id, member:mem});
   const r = await sb.from('catches').delete().match({species_id:id, member:mem});
-  photoCache.delete(id+':'+mem);
+  photoCache.delete(id+':'+mem); thumbCache.delete(id+':'+mem);
   return !r.error;
 }
 export async function addSpeciesRow(id, name, cat, details={}){
@@ -86,6 +86,7 @@ export async function removeMemberRows(name){
   await sb.from('catches').delete().eq('member', name);
   const r = await sb.from('members').delete().eq('name', name);
   for(const k of [...photoCache.keys()]) if(k.endsWith(':'+name)) photoCache.delete(k);
+  for(const k of [...thumbCache.keys()]) if(k.endsWith(':'+name)) thumbCache.delete(k);
   return !r.error;
 }
 export async function updateSil(id, sil){
@@ -95,6 +96,8 @@ export async function updateSil(id, sil){
 
 /* ---------- bilder (base64 i photos-tabellen, cachet lokalt) ---------- */
 const photoCache = new Map();
+const thumbCache = new Map();
+
 export async function loadPhoto(id, mem){
   const key = id+':'+mem;
   if(photoCache.has(key)) return photoCache.get(key);
@@ -103,14 +106,43 @@ export async function loadPhoto(id, mem){
   photoCache.set(key, url);
   return url;
 }
-export async function savePhoto(id, mem, dataUrl){
-  const r = await sb.from('photos').upsert({species_id:id, member:mem, data:dataUrl});
-  if(!r.error) photoCache.set(id+':'+mem, dataUrl);
+
+export async function loadPhotoThumb(id, mem){
+  const key = id+':'+mem;
+  if(thumbCache.has(key)) return thumbCache.get(key);
+  let r = await sb.from('photos').select('thumb,data').match({species_id:id, member:mem}).maybeSingle();
+  // Hvis SQL-en for thumb-kolonnen ikke er kjørt ennå, fall tilbake til gamle data-kolonnen.
+  if(r.error && /thumb/i.test(String(r.error.message||''))){
+    r = await sb.from('photos').select('data').match({species_id:id, member:mem}).maybeSingle();
+  }
+  const url = (r.data && (r.data.thumb || r.data.data)) ? (r.data.thumb || r.data.data) : null;
+  thumbCache.set(key, url);
+  return url;
+}
+
+export async function savePhoto(id, mem, dataUrl, thumbUrl){
+  const row = {species_id:id, member:mem, data:dataUrl, thumb:thumbUrl || dataUrl};
+  let r = await sb.from('photos').upsert(row);
+  // Bakoverkompatibel hvis databasen mangler thumb-kolonnen.
+  if(r.error && /thumb/i.test(String(r.error.message||''))){
+    r = await sb.from('photos').upsert({species_id:id, member:mem, data:dataUrl});
+  }
+  if(!r.error){
+    photoCache.set(id+':'+mem, dataUrl);
+    thumbCache.set(id+':'+mem, thumbUrl || dataUrl);
+  }
   return !r.error;
 }
+
 export async function fetchAllPhotos(){
   const r = await sb.from('photos').select('*');
   return r.error ? null : r.data;
+}
+
+export async function savePhotoThumb(id, mem, thumbUrl){
+  const r = await sb.from('photos').update({thumb:thumbUrl}).match({species_id:id, member:mem});
+  if(!r.error) thumbCache.set(id+':'+mem, thumbUrl);
+  return !r.error;
 }
 
 /* ---------- sanntid ---------- */

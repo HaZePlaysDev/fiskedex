@@ -30,6 +30,33 @@ function parseLengthCm(v){
 }
 function fmtKg(n){ return n>=1 ? (Math.round(n*100)/100).toString().replace('.',',')+' kg' : Math.round(n*1000)+' g'; }
 function fmtCm(n){ return (Math.round(n*10)/10).toString().replace('.',',')+' cm'; }
+function resizeLoadedImage(img, maxSize, quality){
+  const w = img.naturalWidth, h = img.naturalHeight;
+  if(!w || !h) throw new Error('decode');
+  const k = Math.min(1, maxSize / Math.max(w, h));
+  const tw = Math.max(1, Math.round(w * k));
+  const th = Math.max(1, Math.round(h * k));
+
+  // Trinnvis halvering gir bedre kvalitet enn ett stort hopp.
+  let src = img, sw = w, sh = h;
+  while(sw / 2 >= tw && sh / 2 >= th){
+    const half = document.createElement('canvas');
+    half.width = Math.round(sw / 2);
+    half.height = Math.round(sh / 2);
+    const hctx = half.getContext('2d');
+    hctx.imageSmoothingQuality = 'high';
+    hctx.drawImage(src, 0, 0, half.width, half.height);
+    src = half; sw = half.width; sh = half.height;
+  }
+
+  const c = document.createElement('canvas');
+  c.width = tw; c.height = th;
+  const ctx = c.getContext('2d');
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(src, 0, 0, tw, th);
+  return c.toDataURL('image/jpeg', quality);
+}
+
 function compressImage(file){
   return new Promise((res,rej)=>{
     const reader = new FileReader();
@@ -38,26 +65,11 @@ function compressImage(file){
       const img = new Image();
       img.onload = ()=>{
         try{
-          const MAX=2000;
-          let w=img.naturalWidth, h=img.naturalHeight;
-          if(!w||!h) return rej(new Error('decode'));
-          let tw=w, th=h;
-          if(Math.max(w,h)>MAX){ const k=MAX/Math.max(w,h); tw=Math.round(w*k); th=Math.round(h*k); }
-          // trinnvis halvering gir skarpere nedskalering enn ett stort hopp
-          let src=img, sw=w, sh=h;
-          while(sw/2 >= tw && sh/2 >= th){
-            const half=document.createElement('canvas');
-            half.width=Math.round(sw/2); half.height=Math.round(sh/2);
-            const hctx=half.getContext('2d');
-            hctx.imageSmoothingQuality='high';
-            hctx.drawImage(src,0,0,half.width,half.height);
-            src=half; sw=half.width; sh=half.height;
-          }
-          const c=document.createElement('canvas'); c.width=tw; c.height=th;
-          const ctx=c.getContext('2d');
-          ctx.imageSmoothingQuality='high';
-          ctx.drawImage(src,0,0,tw,th);
-          res(c.toDataURL('image/jpeg',0.9));
+          // Fullbildet er fortsatt stort nok til visning, men mye raskere enn mobilens originalbilde.
+          const full = resizeLoadedImage(img, 1280, 0.78);
+          // Miniatyr brukes på kort/grid, så siden slipper å hente store bilder overalt.
+          const thumb = resizeLoadedImage(img, 420, 0.72);
+          res({full, thumb});
         }catch(err){ rej(err); }
       };
       img.onerror = ()=>rej(new Error('decode'));
@@ -65,6 +77,11 @@ function compressImage(file){
     };
     reader.readAsDataURL(file);
   });
+}
+
+async function makeThumbFromDataUrl(dataUrl){
+  const img = await loadImage(dataUrl);
+  return resizeLoadedImage(img, 420, 0.72);
 }
 function readAsDataURL(file){
   return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(file); });
@@ -137,4 +154,4 @@ async function traceSilhouette(file){
   fctx.drawImage(sc,0,0,fw,fh);
   return fc.toDataURL('image/png');
 }
-export { esc, parseWeightKg, parseLengthCm, fmtKg, fmtCm, compressImage, traceSilhouette };
+export { esc, parseWeightKg, parseLengthCm, fmtKg, fmtCm, compressImage, makeThumbFromDataUrl, traceSilhouette };

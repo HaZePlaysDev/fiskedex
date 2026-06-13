@@ -4,7 +4,7 @@ import { store, update, useStore, toast, catchers, memberName, catOrder, canEdit
 import { CATS } from '../data.js';
 import { FELLES, KARMOY } from '../config.js';
 import * as db from '../db.js';
-import { esc, parseWeightKg, parseLengthCm, fmtKg, fmtCm } from '../utils.js';
+import { esc, parseWeightKg, parseLengthCm, fmtKg, fmtCm, makeThumbFromDataUrl } from '../utils.js';
 
 const html = htm.bind(React.createElement);
 const { useState, useEffect, useRef } = React;
@@ -13,6 +13,7 @@ const { useState, useEffect, useRef } = React;
 export function StatsView(){
   useStore();
   const [delArmed, setDelArmed] = useState(null);
+  const [thumbBusy, setThumbBusy] = useState(false);
   const editable = canEdit();
   const armTimer = useRef(null);
 
@@ -85,6 +86,27 @@ export function StatsView(){
     a.download = 'fiskedex-backup-'+new Date().toISOString().slice(0,10)+(withPhotos?'-med-bilder':'')+'.json';
     document.body.appendChild(a); a.click(); a.remove();
   }
+
+  async function rebuildThumbs(){
+    if(thumbBusy) return;
+    setThumbBusy(true);
+    toast('Lager raske miniatyrbilder av gamle bilder …');
+    try{
+      const rows = await db.fetchAllPhotos();
+      if(!rows){ toast('Kunne ikke hente bildene'); return; }
+      let made = 0;
+      for(const ph of rows){
+        if(!ph || !ph.data || ph.thumb) continue;
+        const thumb = await makeThumbFromDataUrl(ph.data);
+        if(await db.savePhoto(ph.species_id, ph.member, ph.data, thumb)) made++;
+      }
+      toast(made ? `Laget ${made} raske miniatyrbilder` : 'Alle bilder hadde allerede miniatyrbilder');
+    }catch(e){
+      toast('Klarte ikke lage miniatyrbilder. Kjør nyeste SQL først.');
+    }finally{
+      setThumbBusy(false);
+    }
+  }
   async function logoutNow(){ await db.logout(); location.reload(); }
 
   return html`
@@ -127,6 +149,7 @@ export function StatsView(){
       <div className="flex flex-wrap gap-2">
         <button className="btn ghost" onClick=${()=>doExport(false)}>📦 Last ned backup</button>
         <button className="btn ghost" onClick=${()=>doExport(true)}>📦 Backup med bilder (stor)</button>
+        <button className="btn ghost" onClick=${rebuildThumbs} disabled=${thumbBusy}>${thumbBusy ? 'Lager …' : '⚡ Gjør gamle bilder raskere'}</button>
         <button className="btn ghost" onClick=${logoutNow}>Logg ut</button>
       </div>
     </div>` : html`<div className="stats-card"><h3>Gjestemodus</h3><p style=${{fontSize:'13.5px', color:'var(--blek)'}}>Du kan se fangster, bilder, kart og logg, men ikke endre noe.</p></div>`}

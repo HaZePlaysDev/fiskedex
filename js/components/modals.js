@@ -114,13 +114,13 @@ export function AddSpeciesModal(){
           <div className="field"><label>Fredet?</label>
             <label className="checkline"><input type="checkbox" checked=${fredet} onChange=${e=>setFredet(e.target.checked)}/> Kun observasjon</label></div>
           <div className="field full"><label>Artsinfo</label>
-            <textarea value=${info} placeholder="Kjennetegn, tips, regler eller fun fact …"
+            <textarea value=${info} placeholder="Kort kjennetegn, størrelse eller viktig regel …"
                       onChange=${e=>setInfo(e.target.value)}></textarea></div>
         </div>
         <div className="modal-actions" style=${{marginTop:'10px'}}>
           <button className="btn ghost" onClick=${autofillInfo} disabled=${autoLoading}>${autoLoading ? 'Henter …' : '✨ Hent artsinfo automatisk'}</button>
         </div>
-        <p style=${{fontSize:'13px', color:'var(--blek)', marginTop:'10px'}}>Arten får automatisk neste ledige nummer i kategorien. Hvis artsinfo står tomt, prøver appen å hente kort info automatisk før lagring. Regler og minstemål bør alltid dobbeltsjekkes.</p>
+        <p style=${{fontSize:'13px', color:'var(--blek)', marginTop:'10px'}}>Arten får automatisk neste ledige nummer i kategorien. Hvis artsinfo står tomt, prøver appen å hente kort info automatisk. Minstemål/regler må dobbeltsjekkes før fisken beholdes.</p>
         <div className="modal-actions">
           <button className="btn primary" onClick=${create}>Legg til i Pokédexen</button>
           <button className="btn ghost" onClick=${close}>Avbryt</button>

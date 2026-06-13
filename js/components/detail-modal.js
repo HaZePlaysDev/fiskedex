@@ -98,9 +98,10 @@ export function DetailModal(){
   function readonlyToast(){ toast('Gjestemodus: du kan bare se, ikke endre.'); }
   function validFisherForEdit(){
     if(!fisher){ toast('Legg til eller velg en fisker først.'); return false; }
-    if(fisher===FELLES){ toast('Velg en ekte fisker. «Felles» er bare visning av gamle fellesfangster.'); return false; }
+    if(fisher===FELLES){ toast('«Felles» er bare gammel visning. Du kan slette gamle fellesfangster, men ikke redigere eller lage nye.'); return false; }
     return true;
   }
+  const canWriteThisCatch = editable && fisher && fisher!==FELLES;
 
   function toggleCaught(){
     if(!editable){ readonlyToast(); return; }
@@ -165,8 +166,10 @@ export function DetailModal(){
     const f = ev.target.files[0]; ev.target.value=''; if(!f) return;
     const mem = fisher;
     try{
-      const url = await compressImage(f);
-      if(!(await db.savePhoto(s.id, mem, url))){ toast('Bildet kunne ikke lagres'); return; }
+      const img = await compressImage(f);
+      const url = typeof img === 'string' ? img : img.full;
+      const thumb = typeof img === 'string' ? img : (img.thumb || img.full);
+      if(!(await db.savePhoto(s.id, mem, url, thumb))){ toast('Bildet kunne ikke lagres'); return; }
       update(()=>{
         s.catches = s.catches || {};
         if(!s.catches[mem]){
@@ -289,7 +292,7 @@ export function DetailModal(){
         ${canEditInfo && html`
           <div className="art-info edit-info">
             <div className="field full"><label>Artsinfo for egen art</label>
-              <textarea value=${infoForm.info} placeholder="Kjennetegn, tips, regler eller fun fact …"
+              <textarea value=${infoForm.info} placeholder="Kort kjennetegn, størrelse eller viktig regel …"
                         onChange=${e=>setInfoForm({...infoForm, info:e.target.value})}></textarea></div>
             <div className="field"><label>Minstemål / regel</label>
               <input type="text" value=${infoForm.min} placeholder="f.eks. 30 cm"
@@ -304,12 +307,12 @@ export function DetailModal(){
             </div>
           </div>`}
 
-        <label className=${'photo-zone'+(photoUrl?' has':'')+(editable?'':' read-only')} htmlFor=${editable && fisher!==FELLES ? 'photoInput' : null} title=${editable?'Last opp bilde':'Gjestemodus'}>
+        <label className=${'photo-zone'+(photoUrl?' has':'')+(canWriteThisCatch?'':' read-only')} htmlFor=${canWriteThisCatch ? 'photoInput' : null} title=${canWriteThisCatch?'Last opp bilde':(editable && fisher===FELLES?'Gammel Felles-fangst kan bare slettes':'Gjestemodus')}>
           ${photoUrl
             ? html`<img src=${photoUrl} alt="Fangstbilde"/>`
-            : html`<span className="hint">${photoUrl===undefined ? 'Henter fangstbilde …' : (editable ? '📷 Trykk for å laste opp bilde av fangsten' : 'Ingen fangstbilde for valgt fisker')}</span>`}
+            : html`<span className="hint">${photoUrl===undefined ? 'Henter fangstbilde …' : (canWriteThisCatch ? '📷 Trykk for å laste opp bilde av fangsten' : (fisher===FELLES ? 'Gammel Felles-fangst: kan slettes, men ikke redigeres' : 'Ingen fangstbilde for valgt fisker'))}</span>`}
         </label>
-        ${editable && html`<input type="file" id="photoInput" accept="image/*" className="vh" onChange=${onPhoto}/>`}
+        ${canWriteThisCatch && html`<input type="file" id="photoInput" accept="image/*" className="vh" onChange=${onPhoto}/>`}
 
         <div className="flex flex-wrap gap-2 mt-2">
           ${photoUrl && html`<button className="btn ghost" style=${smallBtn}
@@ -331,7 +334,7 @@ export function DetailModal(){
           <label>Fisker</label>
           <select value=${fisher} onChange=${e=>setFisher(e.target.value)}>
             ${!fisher && html`<option value="">Velg fisker</option>`}
-            ${fisherOptions.map(m=>html`<option key=${m} value=${m} disabled=${editable && m===FELLES}>${memberName(m)}${m===FELLES?' (kun gammel visning)':''}</option>`)}
+            ${fisherOptions.map(m=>html`<option key=${m} value=${m}>${memberName(m)}${m===FELLES?' (gammel – kan slettes)':''}</option>`)}
           </select>
         </div>
 
@@ -342,32 +345,33 @@ export function DetailModal(){
 
         <div className=${'fields'+(caught?'':' disabled')}>
           <div className="field"><label>Dato</label>
-            <input type="date" disabled=${!editable} value=${form.dato} onChange=${e=>setForm({...form, dato:e.target.value})}/></div>
+            <input type="date" disabled=${!canWriteThisCatch} value=${form.dato} onChange=${e=>setForm({...form, dato:e.target.value})}/></div>
           <div className="field"><label>Sted</label>
-            <input type="text" disabled=${!editable} value=${form.sted} placeholder="f.eks. Åkrehamn" onChange=${e=>setForm({...form, sted:e.target.value})}/></div>
+            <input type="text" disabled=${!canWriteThisCatch} value=${form.sted} placeholder="f.eks. Åkrehamn" onChange=${e=>setForm({...form, sted:e.target.value})}/></div>
           <div className="field"><label>Lengde</label>
-            <input type="text" disabled=${!editable} value=${form.lengde} placeholder="f.eks. 42 cm" onChange=${e=>setForm({...form, lengde:e.target.value})}/></div>
+            <input type="text" disabled=${!canWriteThisCatch} value=${form.lengde} placeholder="f.eks. 42 cm" onChange=${e=>setForm({...form, lengde:e.target.value})}/></div>
           <div className="field"><label>Vekt</label>
-            <input type="text" disabled=${!editable} value=${form.vekt} placeholder="f.eks. 1,2 kg" onChange=${e=>setForm({...form, vekt:e.target.value})}/></div>
+            <input type="text" disabled=${!canWriteThisCatch} value=${form.vekt} placeholder="f.eks. 1,2 kg" onChange=${e=>setForm({...form, vekt:e.target.value})}/></div>
           <div className="field full"><label>Posisjon</label>
             <div className="flex items-center gap-2 flex-wrap">
-              ${editable && html`<button className="btn ghost" type="button" style=${smallBtn} onClick=${openPick}>📍 Velg på kart</button>`}
+              ${canWriteThisCatch && html`<button className="btn ghost" type="button" style=${smallBtn} onClick=${openPick}>📍 Velg på kart</button>`}
               <span style=${{fontSize:'12.5px', color:'var(--blek)'}}>
                 ${curPos ? curPos.lat.toFixed(4)+', '+curPos.lng.toFixed(4) : 'Ingen posisjon valgt'}
               </span>
-              ${editable && curPos && html`<button className="btn ghost" type="button"
+              ${canWriteThisCatch && curPos && html`<button className="btn ghost" type="button"
                   style=${{fontSize:'12px', padding:'6px 10px'}} onClick=${()=>setCurPos(null)}>\u2715 Fjern</button>`}
             </div>
           </div>
           <div className="field full"><label>Kommentarer</label>
-            <textarea disabled=${!editable} value=${form.kommentar} placeholder="Agn, vær, historien bak …"
+            <textarea disabled=${!canWriteThisCatch} value=${form.kommentar} placeholder="Agn, vær, historien bak …"
                       onChange=${e=>setForm({...form, kommentar:e.target.value})}></textarea></div>
         </div>
 
         <div className="modal-actions">
           ${editable ? html`
-            <button className="btn primary" onClick=${save}>Lagre fangst</button>
-            <span className=${'savemsg'+(saveMsg?' show':'')}>Lagret ✓</span>
+            ${canWriteThisCatch && html`<button className="btn primary" onClick=${save}>Lagre fangst</button>`}
+            ${canWriteThisCatch && html`<span className=${'savemsg'+(saveMsg?' show':'')}>Lagret ✓</span>`}
+            ${fisher===FELLES && entry() && html`<span className="guest-note">Gammel Felles-fangst: kan slettes, men ikke redigeres.</span>`}
             ${entry() && html`<button className="btn ghost"
                 style=${resetArmed ? {background:'var(--boye)', color:'#fff', borderColor:'var(--boye)'} : null}
                 onClick=${resetCatch}>${resetArmed ? 'Sikker? Trykk igjen' : 'Slett fangst'}</button>`}

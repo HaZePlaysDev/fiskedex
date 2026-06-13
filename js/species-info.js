@@ -12,11 +12,31 @@ function norm(s){
 
 const LOCAL_BY_NAME = new Map(SEED.map(([id,name])=>[norm(name), {id, name}]));
 
-function shortClean(text){
+function cleanText(text){
   return String(text||'')
-    .replace(/\s+/g,' ')
     .replace(/\s*\([^)]*lytt[^)]*\)/gi,'')
+    .replace(/\[[^\]]*\]/g,'')
+    .replace(/\s+/g,' ')
     .trim();
+}
+
+function splitSentences(text){
+  return cleanText(text)
+    .split(/(?<=[.!?])\s+/)
+    .map(s=>s.trim())
+    .filter(Boolean);
+}
+
+function shortenInfo(text){
+  const sentences = splitSentences(text);
+  if(!sentences.length) return '';
+
+  const useful = sentences.filter(s=>/(kjennetegn|farge|rygg|buk|finn|hal|munn|skjegg|flekk|stripe|prikk|lang|stor|kan bli|blir|vokser|vekt|cm|meter|kg)/i.test(s));
+  let picked = (useful.length ? useful : sentences).slice(0, 2).join(' ');
+
+  // Hold teksten kort nok til artskortet.
+  if(picked.length > 230) picked = picked.slice(0, 230).replace(/\s+\S*$/, '') + ' …';
+  return picked;
 }
 
 export async function fetchAutoSpeciesInfo(name){
@@ -27,7 +47,7 @@ export async function fetchAutoSpeciesInfo(name){
   if(local && ARTSINFO[local.id]){
     const i = ARTSINFO[local.id];
     return {
-      info: i.info || '',
+      info: shortenInfo(i.info || ''),
       min: i.min || '',
       fredet: !!i.fredet,
       source: 'FiskeDex'
@@ -43,11 +63,11 @@ export async function fetchAutoSpeciesInfo(name){
     const pages = d && d.query && d.query.pages ? Object.values(d.query.pages) : [];
     const page = pages.find(p=>p && !p.missing && p.extract);
     if(!page) return null;
-    let extract = shortClean(page.extract);
-    if(!extract) return null;
-    if(extract.length > 420) extract = extract.slice(0, 420).replace(/\s+\S*$/, '') + ' …';
+    const info = shortenInfo(page.extract);
+    if(!info) return null;
     return {
-      info: extract + ' Kilde: norsk Wikipedia. Dobbeltsjekk regler og minstemål før fisken beholdes.',
+      info,
+      // Minstemål/regler er ikke trygt å gjette fra Wikipedia. Legges bare inn automatisk når appen allerede kjenner regelen.
       min: '',
       fredet: false,
       source: 'Wikipedia'
