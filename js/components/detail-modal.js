@@ -51,8 +51,12 @@ export function DetailModal(){
   // last skjema når art eller fisker endres
   useEffect(()=>{
     if(!id || !s) return;
+    let alive = true;
     setDelArmed(false); setResetArmed(false); setSaveMsg(false);
     const c = entry();
+    const m = fisher;
+    const allCatchers = catchers(s);
+
     setCaught(!!c);
     setForm({
       dato: c?c.dato:'', sted: c?c.sted:'', lengde: c?c.lengde:'',
@@ -60,32 +64,47 @@ export function DetailModal(){
     });
     setCurPos((c && c.lat!=null && c.lng!=null) ? {lat:c.lat, lng:c.lng} : null);
     setPhotoUrl(undefined);
+    setGallery([]);
+    setGalleryRows([]);
 
-    const m = fisher;
-    if(c && m){
-      // Prøv alltid å hente bildet. Gamle data kan ha bilde selv om hasPhoto-flagget er feil.
-      db.loadPhoto(id, m).then(u=>{
-        if(store.detailId===id && fisherRef.current===m){
-          setPhotoUrl(u || null);
-          if(u && s.catches && s.catches[m] && !s.catches[m].hasPhoto){
-            update(()=>{ s.catches[m].hasPhoto = true; });
-          }
-        }
-      });
+    async function loadMainPhotos(){
+      const photos = [];
+      for(const m2 of allCatchers){
+        const u = await db.loadPhoto(id, m2);
+        if(u) photos.push({m:m2, url:u});
+      }
+      if(!alive || store.detailId!==id || fisherRef.current!==m) return;
+      setGallery(photos);
+
+      // I «Alle»-visning er ingen fisker valgt. Da viser vi første fangstbilde
+      // og galleriet for alle, men holder opplasting/lagring sperret til fisker velges.
+      const shown = m ? photos.find(x=>x.m===m) : photos[0];
+      setPhotoUrl(shown ? shown.url : null);
+      if(shown && s.catches && s.catches[shown.m] && !s.catches[shown.m].hasPhoto){
+        update(()=>{ s.catches[shown.m].hasPhoto = true; });
+      }
+    }
+
+    async function loadExtraPhotos(){
+      if(m){
+        const rows = await db.fetchGallery(id, m);
+        if(alive && store.detailId===id && fisherRef.current===m) setGalleryRows(rows);
+      } else {
+        const groups = await Promise.all(allCatchers.map(async m2=>{
+          const rows = await db.fetchGallery(id, m2);
+          return rows.map(row=>({...row, member:m2}));
+        }));
+        if(alive && store.detailId===id && fisherRef.current===m) setGalleryRows(groups.flat());
+      }
+    }
+
+    if(allCatchers.length){
+      loadMainPhotos();
+      loadExtraPhotos();
     } else {
       setPhotoUrl(null);
     }
-
-    setGallery([]);
-    setGalleryRows([]);
-    if(c && m){ db.fetchGallery(id, m).then(rows=>{ if(store.detailId===id && fisherRef.current===m) setGalleryRows(rows); }); }
-    const allCatchers = catchers(s);
-    if(allCatchers.length>1){
-      allCatchers.forEach(async m2=>{
-        const u = await db.loadPhoto(id, m2);
-        if(u && store.detailId===id) setGallery(g=>[...g.filter(x=>x.m!==m2), {m:m2, url:u}]);
-      });
-    }
+    return ()=>{ alive = false; };
   }, [id, fisher]);
 
   if(!s) return null;
@@ -393,10 +412,10 @@ export function DetailModal(){
         </section>
 
         <section className="detail-section"><h3>Bilder</h3>
-        <label className=${'photo-zone'+(photoUrl?' has':'')+(canWriteThisCatch?'':' read-only')} htmlFor=${canWriteThisCatch ? 'photoInput' : null} title=${canWriteThisCatch?'Last opp bilde':(editable && fisher===FELLES?'Gammel Felles-fangst kan bare slettes':'Gjestemodus')}>
+        <label className=${'photo-zone'+(photoUrl?' has':'')+(canWriteThisCatch?'':' read-only')} htmlFor=${canWriteThisCatch ? 'photoInput' : null} title=${canWriteThisCatch?'Last opp bilde':(!fisher?'Velg fisker for å legge inn bilde':(editable && fisher===FELLES?'Gammel Felles-fangst kan bare slettes':'Gjestemodus'))}>
           ${photoUrl
             ? html`<img src=${photoUrl} alt="Fangstbilde"/>`
-            : html`<span className="hint">${photoUrl===undefined ? 'Henter fangstbilde …' : (canWriteThisCatch ? '📷 Trykk for å laste opp bilde av fangsten' : (fisher===FELLES ? 'Gammel Felles-fangst: kan slettes, men ikke redigeres' : 'Ingen fangstbilde for valgt fisker'))}</span>`}
+            : html`<span className="hint">${photoUrl===undefined ? 'Henter fangstbilde …' : (canWriteThisCatch ? '📷 Trykk for å laste opp bilde av fangsten' : (!fisher ? 'Velg fisker for å legge inn nytt bilde' : (fisher===FELLES ? 'Gammel Felles-fangst: kan slettes, men ikke redigeres' : 'Ingen fangstbilde for valgt fisker')))}</span>`}
         </label>
         ${canWriteThisCatch && html`<input type="file" id="photoInput" accept="image/*" className="vh" onChange=${onPhoto}/>`}
 
@@ -415,8 +434,8 @@ export function DetailModal(){
             <span className="gal-lbl">Ekstra bilder av denne fangsten</span>
             ${galleryRows.map(g=>html`
               <div key=${g.id} className="gal-thumb">
-                <img src=${g.thumb || g.data} alt="" onClick=${()=>update(st=>{ st.lightboxUrl = g.data; })}/><span>Ekstra</span>
-                ${canWriteThisCatch && html`<button className="mini-x" onClick=${()=>delGallery(g.id)}>×</button>`}
+                <img src=${g.thumb || g.data} alt="" onClick=${()=>update(st=>{ st.lightboxUrl = g.data; })}/><span>${g.member ? memberName(g.member) : 'Ekstra'}</span>
+                ${canWriteThisCatch && (!g.member || g.member===fisher) && html`<button className="mini-x" onClick=${()=>delGallery(g.id)}>×</button>`}
               </div>`)}
           </div>`}
 
