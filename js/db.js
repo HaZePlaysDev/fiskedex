@@ -26,11 +26,13 @@ export async function fetchAll(){
   ]);
   if(sp.error || me.error || ca.error) throw (sp.error || me.error || ca.error);
 
-  // Hent småbilder samtidig med resten. Dette gjør at artskortene får bilder med en gang
-  // når siden åpnes, i stedet for at hvert kort må vente på eget Supabase-kall.
-  let ph = await sb.from('photos').select('species_id,member,thumb,data');
+  // Hent bare småbilder ved oppstart. Fullbilder hentes først når noen åpner/zoomer et bilde.
+  // Dette kutter mye datatrafikk fra Supabase når dexen åpnes.
+  let ph = await sb.from('photos').select('species_id,member,thumb');
   if(ph.error && /thumb/i.test(String(ph.error.message||''))){
-    ph = await sb.from('photos').select('species_id,member,data');
+    // Gammel database uten thumb-kolonne: ikke hent alle fullbilder ved oppstart.
+    // Kortene viser da bilder etter hvert som de åpnes, og knappen i Toppliste kan lage thumbs.
+    ph = { data: [] };
   }
   if(ph.error) ph = { data: [] };
 

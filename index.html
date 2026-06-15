@@ -5,17 +5,25 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>FiskeDex – Karmøy Fishing Championship</title>
 
+<meta name="description" content="FiskeDex for Karmøy Fishing Championship: artsliste, fangster, bilder, kart, toppliste og rekorder for fiskegjengen.">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://unpkg.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://unpkg.com https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://tile.openstreetmap.org; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.open-meteo.com https://vannstand.kartverket.no https://no.wikipedia.org https://*.wikimedia.org; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests">
+<link rel="preconnect" href="https://wouuhaozirderymjtcsr.supabase.co" crossorigin>
+<link rel="preconnect" href="https://unpkg.com" crossorigin>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="image" href="img/forside.jpg" fetchpriority="high">
+
 <!-- PWA -->
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#122b36">
 <link rel="apple-touch-icon" href="img/icon-192.png">
 <link rel="icon" href="img/icon-192.png">
 
-<!-- Rammeverk: React 18 + htm (JSX uten byggeverktøy) + Tailwind -->
+<!-- Rammeverk: React 18 + htm (JSX uten byggeverktøy) -->
 <script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
 <script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/htm@3.1.1/dist/htm.umd.js"></script>
-<script src="https://cdn.tailwindcss.com"></script>
 
 <!-- Tjenester: Supabase (database) + Leaflet (kart) -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -26,15 +34,15 @@
 <link href="https://fonts.googleapis.com/css2?family=Staatliches&family=Public+Sans:ital,wght@0,400;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 
 <!-- FiskeDex-designet -->
-<link rel="stylesheet" href="css/theme.css?v=15">
-<link rel="stylesheet" href="css/components.css?v=15">
+<link rel="stylesheet" href="css/theme.css?v=16">
+<link rel="stylesheet" href="css/components.css?v=16">
 </head>
 <body>
 
 <div id="app"></div>
 
 <!-- Appen (ES-moduler) -->
-<script type="module" src="js/app.js?v=15"></script>
+<script type="module" src="js/app.js?v=16"></script>
 
 </body>
 </html>

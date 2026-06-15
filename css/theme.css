@@ -5,7 +5,7 @@
   --hav-dyp:#0c1f28;
   --kart:#e3edee;       /* pale chart blue */
   --papir:#fbfaf5;      /* card */
-  --boye:#e8612c;       /* buoy orange */
+  --boye:#c94f1f;       /* buoy orange - mørkere for bedre kontrast */
   --tang:#56684c;       /* kelp olive */
   --stamp:#c03a2b;      /* rubber stamp red */
   --blek:#5e7780;
@@ -31,7 +31,7 @@ h1 .o{color:var(--boye)}
 .tagline{color:#b9c9cc;font-size:18px;max-width:840px;margin-top:16px}
 .progress-wrap{display:flex;align-items:center;gap:14px;margin-top:24px;flex-wrap:wrap}
 .progress-bar{flex:1;min-width:200px;height:10px;background:#1f3d4a;border-radius:99px;overflow:hidden}
-.progress-fill{height:100%;background:linear-gradient(90deg,var(--boye),#f0a06a);width:0%;transition:width .6s cubic-bezier(.2,.8,.2,1)}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--boye),#f0a06a);width:100%;transform:scaleX(0);transform-origin:left center;transition:transform .6s cubic-bezier(.2,.8,.2,1)}
 .progress-num{font-family:'Staatliches',sans-serif;font-size:34px;letter-spacing:.04em}
 .progress-num small{font-size:15px;color:#9fb6ba;font-family:'IBM Plex Mono',monospace;letter-spacing:.1em;margin-left:6px}
 
@@ -82,3 +82,15 @@ main{max-width:1200px;padding-bottom:110px}
 @media (max-width:760px){
   .toolbar.main-toolbar{justify-content:flex-start}.main-nav{width:100%;overflow-x:auto;flex-wrap:nowrap;padding-bottom:4px}.nav-tab{white-space:nowrap}.dex-tools .search{margin-left:0;max-width:none;flex-basis:100%}
 }
+
+
+/* v16: små CSS-verktøy som erstatter Tailwind CDN */
+.flex{display:flex}
+.flex-wrap{flex-wrap:wrap}
+.items-center{align-items:center}
+.gap-2{gap:.5rem}
+.mt-2{margin-top:.5rem}
+
+/* v16: bedre kontrast fra Lighthouse */
+.mlabel{color:#405862!important}
+.mchip.add{color:#405862!important;border-color:#405862!important}
