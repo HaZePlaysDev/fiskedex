@@ -118,17 +118,17 @@
   align-items:center;justify-content:center;gap:16px;padding:24px;text-align:center;transition:opacity 1.25s ease,transform 1.25s ease;overflow-y:auto}
 #cover.hide{opacity:0;transform:scale(1.015);pointer-events:none}
 #cover > *{animation:coverIntroRise 1.55s cubic-bezier(.16,.84,.22,1) both;will-change:transform,opacity}
-#cover img{width:min(88vw,520px);max-height:58vh;object-fit:contain;border-radius:12px;border:3px solid #f4f1e6;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+#cover img{width:min(88vw,520px);height:auto;aspect-ratio:1000/999;max-height:58vh;object-fit:contain;border-radius:12px;border:3px solid #f4f1e6;box-shadow:0 20px 60px rgba(0,0,0,.5)}
 #cover h2{font-family:'Staatliches',sans-serif;color:#f4f1e6;font-size:clamp(38px,7vw,86px);letter-spacing:.04em;font-weight:400;line-height:.9;animation-delay:.12s}
 #cover p{color:#b9c9cc;font-size:15.5px;line-height:1.45;max-width:560px;animation-delay:.24s}
-#cover .btn-add{animation-delay:.36s;min-width:210px;min-height:58px;padding:14px 28px;font-size:16px;box-shadow:0 4px 0 #b3431a,0 12px 26px rgba(0,0,0,.28)}
+#cover .btn-add{animation-delay:.36s;min-width:210px;min-height:58px;padding:14px 28px;font-size:16px;box-shadow:0 4px 0 #8f2f12,0 12px 26px rgba(0,0,0,.28)}
 @keyframes coverIntroRise{from{opacity:0;transform:translateY(96px)}to{opacity:1;transform:translateY(0)}}
 /* ---------- fiskere ---------- */
 .members-bar{max-width:1060px;margin:0 auto;padding:6px 20px 0;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 .mlabel{font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--blek);margin-right:2px}
 .mchip{border:1.5px solid var(--tang);background:transparent;color:var(--tang);padding:6px 13px;border-radius:99px;font-size:13px;font-weight:700;cursor:pointer}
 .mchip.active{background:var(--tang);color:#f2efe6}
-.mchip.add{border-style:dashed;color:var(--blek);border-color:var(--blek)}
+.mchip.add{border-style:dashed;color:var(--blek);border-color:var(--blek);background:#edf4f4}
 /* skjult fil-input som fortsatt fungerer med <label> på mobil */
 .vh{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;clip:rect(0 0 0 0)}
 label.btn{display:inline-block;text-align:center}
@@ -310,4 +310,10 @@ button:disabled{opacity:.6;cursor:wait}
   .map-viewing{display:inline-block;margin-top:8px}
   .map-box{height:68vh;border-radius:10px}
   .map-cat{font-size:12.5px;padding:7px 10px}
+}
+
+
+/* v16: Lighthouse/Best Practices – mindre layout shift og respekt for redusert bevegelse */
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}
 }

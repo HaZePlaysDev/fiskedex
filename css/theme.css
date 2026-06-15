@@ -5,10 +5,10 @@
   --hav-dyp:#0c1f28;
   --kart:#e3edee;       /* pale chart blue */
   --papir:#fbfaf5;      /* card */
-  --boye:#e8612c;       /* buoy orange */
+  --boye:#c8461a;       /* buoy orange */
   --tang:#56684c;       /* kelp olive */
   --stamp:#c03a2b;      /* rubber stamp red */
-  --blek:#5e7780;
+  --blek:#526a72;
   --linje:#c6d6d8;
   --radius:10px;
 }
@@ -31,7 +31,7 @@ h1 .o{color:var(--boye)}
 .tagline{color:#b9c9cc;font-size:18px;max-width:840px;margin-top:16px}
 .progress-wrap{display:flex;align-items:center;gap:14px;margin-top:24px;flex-wrap:wrap}
 .progress-bar{flex:1;min-width:200px;height:10px;background:#1f3d4a;border-radius:99px;overflow:hidden}
-.progress-fill{height:100%;background:linear-gradient(90deg,var(--boye),#f0a06a);width:0%;transition:width .6s cubic-bezier(.2,.8,.2,1)}
+.progress-fill{height:100%;width:100%;background:linear-gradient(90deg,var(--boye),#f0a06a);transform:scaleX(0);transform-origin:left center;transition:transform .6s cubic-bezier(.2,.8,.2,1);will-change:transform}
 .progress-num{font-family:'Staatliches',sans-serif;font-size:34px;letter-spacing:.04em}
 .progress-num small{font-size:15px;color:#9fb6ba;font-family:'IBM Plex Mono',monospace;letter-spacing:.1em;margin-left:6px}
 
@@ -53,9 +53,12 @@ h1 .o{color:var(--boye)}
 .search input{border:none;outline:none;background:transparent;width:100%}
 .btn-add{
   background:var(--boye);color:#fff;border:none;border-radius:99px;padding:9px 18px;
-  font-weight:700;font-size:14px;letter-spacing:.02em;box-shadow:0 2px 0 #b3431a;
+  font-weight:700;font-size:14px;letter-spacing:.02em;box-shadow:0 2px 0 #8f2f12;
 }
 .btn-add:hover{filter:brightness(1.06)}
+.btn-add:focus-visible,.nav-tab:focus-visible,.tab:focus-visible,.chip:focus-visible,.mchip:focus-visible{outline:3px solid #f0a06a;outline-offset:2px}
+/* Små utility-klasser som erstatter Tailwind CDN */
+.flex{display:flex}.flex-wrap{flex-wrap:wrap}.items-center{align-items:center}.gap-2{gap:.5rem}.mt-2{margin-top:.5rem}
 .filter-caught{display:flex;gap:6px}
 .chip{border:1.5px dashed var(--blek);background:transparent;color:var(--blek);padding:6px 12px;border-radius:99px;font-size:12.5px;font-weight:600}
 .chip.active{border-style:solid;border-color:var(--tang);color:var(--tang);background:#e8ecdf}
