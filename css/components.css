@@ -244,3 +244,44 @@ button:disabled{opacity:.6;cursor:wait}
 .mobile-bottom-nav{display:none}
 @media (max-width:860px){.dashboard{grid-template-columns:1fr}.dash-card,.dash-hero-card,.dash-card.wide,.story-card,.quick-card{grid-column:1}.dash-hero-card{flex-direction:column;align-items:flex-start}.big-progress{text-align:left;width:100%}.catch-grid{grid-template-columns:1fr}.leader-card-grid{grid-template-columns:1fr}}
 @media (max-width:640px){.mobile-bottom-nav{position:fixed;left:0;right:0;bottom:0;z-index:45;background:rgba(251,250,245,.96);border-top:1.5px solid var(--linje);display:grid;grid-template-columns:repeat(5,1fr);padding:6px 4px calc(6px + env(safe-area-inset-bottom));backdrop-filter:blur(8px)}.mobile-bottom-nav button{border:none;background:transparent;color:var(--blek);font-size:19px;font-weight:800;display:flex;flex-direction:column;align-items:center;gap:2px}.mobile-bottom-nav button span{font-size:10px}.mobile-bottom-nav button.active{color:var(--boye)}.main-nav .nav-tab:nth-child(n+6){display:none}.dash-photo{width:84px;height:66px}.catch-photo{width:82px;height:78px}.catch-body h3{font-size:24px}.section-title-row{align-items:flex-start;flex-direction:column}.quick-grid{grid-template-columns:1fr 1fr}}
+
+/* ---------- v13: tryggere fangstregistrering + kart/GPS-overlay ---------- */
+.form-hint{
+  margin-top:6px;font-size:12.5px;color:var(--boye);font-weight:700;
+}
+.map-picker-overlay{
+  z-index:140!important;
+  align-items:center!important;
+  justify-content:center!important;
+  padding:10px!important;
+  overflow:hidden!important;
+}
+.map-picker-modal{
+  max-width:720px!important;
+  width:min(96vw,720px)!important;
+  max-height:94vh!important;
+  margin:0!important;
+  display:flex;
+  flex-direction:column;
+}
+.map-picker-body{
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+  padding:14px!important;
+}
+.map-pick-box{
+  height:min(62vh,560px);
+  min-height:340px;
+  border-radius:10px;
+  overflow:hidden;
+  border:1.5px solid var(--linje);
+}
+@media (max-width:560px){
+  .map-picker-overlay{padding:8px!important;align-items:center!important;}
+  .map-picker-modal{width:calc(100vw - 16px)!important;max-height:calc(100vh - 24px)!important;}
+  .map-picker-body{padding:10px!important;}
+  .map-pick-box{height:58vh;min-height:320px;}
+  .map-picker-body .modal-actions{gap:8px;}
+  .map-picker-body .btn{padding:10px 13px;font-size:13.5px;}
+}

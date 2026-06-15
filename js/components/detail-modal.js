@@ -18,7 +18,7 @@ export function DetailModal(){
   const s = id ? sp(id) : null;
   const editable = canEdit();
 
-  const [fisher, setFisher] = useState(FELLES);
+  const [fisher, setFisher] = useState('');
   const [caught, setCaught] = useState(false);
   const [form, setForm] = useState({dato:'',sted:'',lengde:'',vekt:'',kommentar:''});
   const [curPos, setCurPos] = useState(null);
@@ -38,16 +38,13 @@ export function DetailModal(){
 
   const entry = ()=> (s && s.catches && s.catches[fisher]) || null;
 
-  // når kortet åpnes: velg valgt fisker, eller første ekte fisker som har fanget arten.
-  // Felles er bare historikk/visning, ikke et sted man skal registrere nye fangster.
+  // når kortet åpnes: ikke velg første fisker automatisk.
+  // Da slipper dere at fangster havner på første navn i alfabetet hvis man glemmer å bytte.
+  // Hvis man allerede har valgt en bestemt fisker i appen, brukes den som et bevisst valg.
   useEffect(()=>{
     if(!id || !s) return;
-    const who = catchers(s);
-    const realCatchers = who.filter(m=>m!==FELLES);
-    const best = store.member && store.member!==FELLES && (s.catches||{})[store.member]
-      ? store.member
-      : (realCatchers[0] || store.members[0] || (who.includes(FELLES) ? FELLES : ''));
-    setFisher(best);
+    const selected = store.member && store.member!==FELLES ? store.member : '';
+    setFisher(selected);
     setInfoForm({info:s.info||'', min:s.min||'', fredet:!!s.fredet});
   }, [id]);
 
@@ -101,7 +98,7 @@ export function DetailModal(){
 
   function readonlyToast(){ toast('Gjestemodus: du kan bare se, ikke endre.'); }
   function validFisherForEdit(){
-    if(!fisher){ toast('Legg til eller velg en fisker først.'); return false; }
+    if(!fisher){ toast('Velg hvilken fisker fangsten tilhører først.'); return false; }
     if(fisher===FELLES){ toast('«Felles» er bare gammel visning. Du kan slette gamle fellesfangster, men ikke redigere eller lage nye.'); return false; }
     return true;
   }
@@ -302,9 +299,49 @@ export function DetailModal(){
       }
     }, 80);
   }
+  function closePick(){
+    setPickOpen(false);
+    // Kartet ligger i en egen overlay. Når den lukkes, fjernes Leaflet-instansen
+    // slik at neste åpning alltid legger seg pent oppå modalvinduet.
+    if(pickMap.current){ pickMap.current.remove(); pickMap.current=null; pickMarker.current=null; }
+  }
   function savePick(){
     if(pickLatLng.current) setCurPos(pickLatLng.current);
-    setPickOpen(false);
+    closePick();
+  }
+  function putMarker(latlng, zoom=15){
+    pickLatLng.current = {lat:latlng.lat, lng:latlng.lng};
+    if(pickMap.current && typeof L!== 'undefined'){
+      const ll = [latlng.lat, latlng.lng];
+      pickMap.current.setView(ll, zoom);
+      if(pickMarker.current) pickMarker.current.setLatLng(ll);
+      else pickMarker.current = L.marker(ll).addTo(pickMap.current);
+    }
+  }
+  function gpsMsg(err){
+    if(err && err.code===1) return 'GPS ble avvist. Gi nettsiden posisjonstilgang og prøv igjen.';
+    if(err && err.code===2) return 'Fant ikke GPS-posisjon akkurat nå.';
+    if(err && err.code===3) return 'GPS brukte for lang tid. Prøv igjen ute med bedre signal.';
+    return 'Kunne ikke hente GPS-posisjon.';
+  }
+  function useGpsDirect(){
+    if(!editable){ readonlyToast(); return; }
+    if(!validFisherForEdit()) return;
+    if(!navigator.geolocation){ toast('GPS støttes ikke i denne nettleseren.'); return; }
+    toast('Henter GPS-posisjon …');
+    navigator.geolocation.getCurrentPosition(pos=>{
+      const latlng = {lat:pos.coords.latitude, lng:pos.coords.longitude};
+      setCurPos(latlng);
+      toast('GPS-posisjon lagt inn. Husk å lagre fangsten.');
+    }, err=>toast(gpsMsg(err)), {enableHighAccuracy:true, timeout:12000, maximumAge:30000});
+  }
+  function useGpsOnMap(){
+    if(!navigator.geolocation){ toast('GPS støttes ikke i denne nettleseren.'); return; }
+    toast('Henter GPS-posisjon …');
+    navigator.geolocation.getCurrentPosition(pos=>{
+      putMarker({lat:pos.coords.latitude, lng:pos.coords.longitude}, 16);
+      toast('GPS-posisjon valgt på kartet.');
+    }, err=>toast(gpsMsg(err)), {enableHighAccuracy:true, timeout:12000, maximumAge:30000});
   }
   // rydd opp Leaflet-instansen når kortet lukkes (elementet forsvinner fra DOM)
   useEffect(()=>()=>{
@@ -314,7 +351,7 @@ export function DetailModal(){
   const realOptions = [...store.members, ...catchers(s).filter(m=>m!==FELLES)];
   const fisherOptions = [...new Set([...realOptions, ...(s.catches && s.catches[FELLES] ? [FELLES] : [])])];
 
-  return html`
+  return html`<${React.Fragment}>
   <div className="overlay open" onClick=${e=>{ if(e.target===e.currentTarget) close(); }}>
     <div className="modal" role="dialog" aria-modal="true">
       <div className="modal-head">
@@ -397,9 +434,10 @@ export function DetailModal(){
         <div className="field" style=${{marginTop:'14px'}}>
           <label>Fisker</label>
           <select value=${fisher} onChange=${e=>setFisher(e.target.value)}>
-            ${!fisher && html`<option value="">Velg fisker</option>`}
+            <option value="" disabled>Velg fisker først</option>
             ${fisherOptions.map(m=>html`<option key=${m} value=${m}>${memberName(m)}${m===FELLES?' (gammel – kan slettes)':''}</option>`)}
           </select>
+          ${editable && !fisher && html`<p className="form-hint">Velg fisker før du kan laste opp bilde eller lagre fangst.</p>`}
         </div>
 
         <div className="caught-row">
@@ -419,6 +457,7 @@ export function DetailModal(){
           <div className="field full"><label>Posisjon</label>
             <div className="flex items-center gap-2 flex-wrap">
               ${canWriteThisCatch && html`<button className="btn ghost" type="button" style=${smallBtn} onClick=${openPick}>📍 Velg på kart</button>`}
+              ${canWriteThisCatch && html`<button className="btn ghost" type="button" style=${smallBtn} onClick=${useGpsDirect}>📡 Bruk GPS</button>`}
               <span style=${{fontSize:'12.5px', color:'var(--blek)'}}>
                 ${curPos ? curPos.lat.toFixed(4)+', '+curPos.lng.toFixed(4) : 'Ingen posisjon valgt'}
               </span>
@@ -454,23 +493,26 @@ export function DetailModal(){
         </div>
       </div>
     </div>
+  </div>
 
-    <div className="overlay open" style=${{zIndex:60, display: pickOpen?'flex':'none'}}
-         onClick=${e=>{ if(e.target===e.currentTarget) setPickOpen(false); }}>
-      <div className="modal" style=${{maxWidth:'680px'}}>
+  ${pickOpen && html`
+    <div className="overlay open map-picker-overlay"
+         onClick=${e=>{ if(e.target===e.currentTarget) closePick(); }}>
+      <div className="modal map-picker-modal">
         <div className="modal-head">
           <h2 style=${{fontSize:'24px'}}>Velg fangststed</h2>
-          <button className="x" aria-label="Lukk" onClick=${()=>setPickOpen(false)}>\u00d7</button>
+          <button className="x" aria-label="Lukk" onClick=${closePick}>\u00d7</button>
         </div>
-        <div className="modal-body">
-          <div id="mapPick" style=${{height:'55vh', borderRadius:'8px', overflow:'hidden'}}></div>
-          <p style=${{fontSize:'12.5px', color:'var(--blek)', marginTop:'8px'}}>Trykk på kartet der fangsten ble tatt.</p>
+        <div className="modal-body map-picker-body">
+          <div id="mapPick" className="map-pick-box"></div>
+          <p style=${{fontSize:'12.5px', color:'var(--blek)', marginTop:'8px'}}>Trykk på kartet der fangsten ble tatt, eller bruk GPS på mobilen.</p>
           <div className="modal-actions">
+            <button className="btn ghost" onClick=${useGpsOnMap}>📡 Bruk min GPS-posisjon</button>
             <button className="btn primary" onClick=${savePick}>Bruk denne posisjonen</button>
-            <button className="btn ghost" onClick=${()=>setPickOpen(false)}>Avbryt</button>
+            <button className="btn ghost" onClick=${closePick}>Avbryt</button>
           </div>
         </div>
       </div>
-    </div>
-  </div>`;
+    </div>`}
+  <//>`;
 }
