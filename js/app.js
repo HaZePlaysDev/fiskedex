@@ -142,7 +142,7 @@ function App(){
 
     ${store.showCover && html`
       <div id="cover" className=${store.coverClosing ? 'hide' : ''}>
-        <img src="img/forside.jpg" width="1040" height="1038" fetchPriority="high" decoding="async" alt="Karmøy Fishing Championship-plakat"/>
+        <img src="img/forside.jpg" alt="Karmøy Fishing Championship-plakat"/>
         <h2>KARMØY FISHING<br/>CHAMPIONSHIP</h2>
         <p>Under overflaten finnes en verden de fleste aldri ser. Noen arter er vanlige. Andre er legender. Vårt oppdrag er å finne dem alle.</p>
         <button className="btn-add" onClick=${openFiskedex}>Åpne FiskeDex</button>
@@ -161,7 +161,7 @@ function App(){
         <div className="tagline">${editable ? 'Konkurranse-dashboard, fangster, kart og rekorder for gjengen.' : 'Gjestemodus: du kan se fangstene, men ikke endre noe.'}</div>
         <div className="progress-wrap">
           <div className="progress-num"><span>${caughtCount}</span>/<span>${tot}</span><small>ARTER KARTLAGT</small></div>
-          <div className="progress-bar"><div className="progress-fill" style=${{transform: `scaleX(${pct/100})`}}></div></div>
+          <div className="progress-bar"><div className="progress-fill" style=${{width: pct+'%'}}></div></div>
         </div>
       </div>
     </header>
