@@ -285,3 +285,29 @@ button:disabled{opacity:.6;cursor:wait}
   .map-picker-body .modal-actions{gap:8px;}
   .map-picker-body .btn{padding:10px 13px;font-size:13.5px;}
 }
+
+/* ---------- v15: bedre fangstkart ---------- */
+.map-card{overflow:visible}
+.map-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px}
+.map-head h3{margin:0}
+.map-viewing{font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--blek);border:1.5px solid var(--linje);border-radius:999px;padding:7px 11px;background:#fff;white-space:nowrap}
+.map-tools{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 12px}
+.map-cat{border:1.5px solid var(--linje);background:#fff;color:var(--hav);border-radius:999px;padding:7px 12px;font-size:13px;font-weight:800;box-shadow:0 1px 0 rgba(18,43,54,.06)}
+.map-cat:hover{background:#edf4f4}
+.map-cat.active{background:var(--hav);border-color:var(--hav)!important;color:#f4f1e6}
+.map-box{height:min(72vh,720px);border-radius:12px;overflow:hidden;border:1.5px solid var(--linje);background:#dfe9e9;box-shadow:inset 0 0 0 1px rgba(255,255,255,.35)}
+.map-legend{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.map-legend span{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1.5px solid var(--linje);border-radius:999px;padding:6px 10px;font-size:12px;font-weight:800;color:var(--hav)}
+.map-legend i{width:11px;height:11px;border-radius:50%;display:inline-block;box-shadow:0 0 0 2px rgba(255,255,255,.9),0 0 0 3px rgba(18,43,54,.12)}
+.fish-pin-wrap{background:transparent!important;border:none!important}
+.fish-pin{width:34px;height:34px;border-radius:50% 50% 50% 11px;transform:rotate(-45deg);background:var(--pin);border:2.5px solid #fff;box-shadow:0 5px 12px rgba(18,43,54,.32);display:flex;align-items:center;justify-content:center;position:relative}
+.fish-pin::after{content:"";position:absolute;inset:7px;border-radius:50%;background:rgba(255,255,255,.18)}
+.fish-pin span{transform:rotate(45deg);font-size:15px;line-height:1;position:relative;z-index:1;filter:drop-shadow(0 1px 0 rgba(0,0,0,.2))}
+.map-popup{font-family:'Public Sans',sans-serif;color:var(--hav);min-width:150px;line-height:1.45}
+.map-pop-cat{display:inline-block;color:#fff;border-radius:999px;padding:2px 7px;font-size:11px;font-weight:800;margin:4px 0 2px}
+@media (max-width:560px){
+  .map-head{display:block}
+  .map-viewing{display:inline-block;margin-top:8px}
+  .map-box{height:68vh;border-radius:10px}
+  .map-cat{font-size:12.5px;padding:7px 10px}
+}

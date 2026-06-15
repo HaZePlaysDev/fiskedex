@@ -296,39 +296,120 @@ export function RecordsView(){
 }
 
 /* ---------- 🗺️ Fangstkart ---------- */
+const MAP_CAT_COLORS = {
+  F:'#2f7d5b',   // ferskvann
+  K:'#e8612c',   // kystfiske
+  B:'#2364a0',   // havfiske
+  H:'#1398a5',   // havdyr
+  M:'#7b3fb2',   // mythical encounters
+};
+const MAP_CAT_ICONS = {F:'🏞️', K:'🌊', B:'⚓', H:'🦀', M:'✨'};
+function mapCatColor(cat){ return MAP_CAT_COLORS[cat] || '#56684c'; }
+function mapCatIcon(cat){ return MAP_CAT_ICONS[cat] || '🐟'; }
+function mapPinIcon(species){
+  const color = mapCatColor(species.cat);
+  const icon = mapCatIcon(species.cat);
+  return L.divIcon({
+    className:'fish-pin-wrap',
+    html:`<div class="fish-pin" style="--pin:${color}"><span>${icon}</span></div>`,
+    iconSize:[36,42],
+    iconAnchor:[18,40],
+    popupAnchor:[0,-38],
+  });
+}
+
 export function MapView(){
   useStore();
+  const [mapCat, setMapCat] = useState('ALL');
+  const mapTabs = [{key:'ALL', name:'Alle'}, ...catOrder().map(c=>({key:c, name:CATS[c].name}))];
+
   useEffect(()=>{
     if(typeof L==='undefined'){
       document.getElementById('mapBox').innerHTML = '<p style="padding:20px">Kartbiblioteket fikk ikke lastet – sjekk nettet.</p>';
       return;
     }
-    const map = L.map('mapBox').setView(KARMOY, 10);
+    const map = L.map('mapBox',{scrollWheelZoom:true}).setView(KARMOY, 10);
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(map);
+    map.createPane('heatPane');
+    map.getPane('heatPane').style.zIndex = 350;
+
     const pts = [];
+    const clusters = new Map();
+
     for(const s of store.species){
+      if(mapCat !== 'ALL' && s.cat !== mapCat) continue;
       for(const m of catchers(s)){
         if(store.member && m!==store.member) continue;
         const c = s.catches[m];
         if(c.lat!=null && c.lng!=null){
-          L.circle([c.lat,c.lng],{radius:260,color:'#e8612c',fillOpacity:.12,weight:1}).addTo(map);
-          L.marker([c.lat,c.lng]).addTo(map)
-            .bindPopup(`<b>${esc(s.name)}</b><br>${esc(memberName(m))}${c.dato?' · '+esc(c.dato):''}${c.vekt?'<br>⚖️ '+esc(c.vekt):''}${c.sted?'<br>📍 '+esc(c.sted):''}`);
-          pts.push([c.lat,c.lng]);
+          const lat = Number(c.lat), lng = Number(c.lng);
+          if(!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+          pts.push([lat,lng]);
+
+          const ckey = `${s.cat}|${Math.round(lat*1000)/1000}|${Math.round(lng*1000)/1000}`;
+          const cl = clusters.get(ckey) || {cat:s.cat, latSum:0, lngSum:0, n:0, names:new Set()};
+          cl.latSum += lat; cl.lngSum += lng; cl.n++; cl.names.add(s.name);
+          clusters.set(ckey, cl);
+
+          const popup = `<div class="map-popup">
+            <b>${esc(s.name)}</b><br>
+            <span class="map-pop-cat" style="background:${mapCatColor(s.cat)}">${esc(CATS[s.cat]?.name || 'Annet')}</span><br>
+            ${esc(memberName(m))}${c.dato?' · '+esc(c.dato):''}
+            ${c.vekt?'<br>⚖️ '+esc(c.vekt):''}
+            ${c.lengde?'<br>📏 '+esc(c.lengde):''}
+            ${c.sted?'<br>📍 '+esc(c.sted):''}
+            ${c.weather?'<br>🌦 '+esc(c.weather):''}
+          </div>`;
+
+          L.marker([lat,lng],{icon:mapPinIcon(s), riseOnHover:true})
+            .addTo(map)
+            .bindPopup(popup);
         }
       }
     }
-    if(pts.length) map.fitBounds(pts,{padding:[40,40],maxZoom:13});
+
+    for(const cl of clusters.values()){
+      const lat = cl.latSum / cl.n, lng = cl.lngSum / cl.n;
+      const color = mapCatColor(cl.cat);
+      const radius = Math.min(1100, 180 + Math.sqrt(cl.n) * 230);
+      const innerRadius = Math.max(90, radius * .42);
+      L.circle([lat,lng],{
+        pane:'heatPane', radius, color, fillColor:color, weight:2, opacity:.42,
+        fillOpacity:Math.min(.24, .075 + cl.n*.026),
+      }).addTo(map).bindTooltip(`${cl.n} fangst${cl.n===1?'':'er'} · ${CATS[cl.cat]?.name || 'Annet'}`);
+      L.circle([lat,lng],{
+        pane:'heatPane', radius:innerRadius, color, fillColor:color, weight:1, opacity:.35,
+        fillOpacity:Math.min(.36, .13 + cl.n*.035),
+      }).addTo(map);
+    }
+
+    if(pts.length) map.fitBounds(pts,{padding:[44,44],maxZoom:13});
+    setTimeout(()=>map.invalidateSize(), 80);
     return ()=>{ map.remove(); };
-  }, [store.member, store.species.length]);
+  }, [store.member, store.species.length, mapCat]);
 
   return html`
-  <div className="stats-card" style=${{marginTop:'18px'}}>
-    <h3>Fangstkart + heatmap</h3>
-    <div id="mapBox" style=${{height:'62vh', borderRadius:'8px', overflow:'hidden'}}></div>
+  <div className="stats-card map-card" style=${{marginTop:'18px'}}>
+    <div className="map-head">
+      <div>
+        <h3>Fangstkart</h3>
+        <p className="muted">Fargede pins viser kategori. Sirklene under viser fangst-tetthet.</p>
+      </div>
+      <div className="map-viewing">${store.member ? memberName(store.member) : 'Alle fiskere'}</div>
+    </div>
+    <div className="map-tools">
+      ${mapTabs.map(t=>html`<button key=${t.key} className=${'map-cat'+(mapCat===t.key?' active':'')}
+        style=${t.key!=='ALL'?{borderColor:mapCatColor(t.key)}:null}
+        onClick=${()=>setMapCat(t.key)}>
+        ${t.key==='ALL'?'🧭':mapCatIcon(t.key)} ${t.name}
+      </button>`)}
+    </div>
+    <div id="mapBox" className="map-box"></div>
+    <div className="map-legend">
+      ${catOrder().map(c=>html`<span key=${c}><i style=${{background:mapCatColor(c)}}></i>${mapCatIcon(c)} ${CATS[c].name}</span>`)}
+    </div>
     <p className="muted" style=${{marginTop:'8px'}}>
-      Oransje sirkler viser fangst-tetthet/heatmap. Posisjoner legges til i artskortet med 📍-knappen.
-      Viser ${store.member ? memberName(store.member)+'s' : 'alle'} fangster.
+      Trykk på en pin for fangstdetaljer. Posisjoner legges til i artskortet med 📍/GPS-knappen.
     </p>
   </div>`;
 }
