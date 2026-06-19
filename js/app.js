@@ -24,6 +24,16 @@ async function init(){
 
 function MainNav(){
   useStore();
+  const editable = canEdit();
+  const openOrder = ()=>update(s=>{
+    s.view = 'dex';
+    s.orderOpen = true;
+    const cats = catOrder();
+    const chosen = (s.filterCat && s.filterCat !== 'ALL') ? s.filterCat : (s.orderCat || cats[0]);
+    if(chosen) s.orderCat = chosen;
+    // Vis valgt kategori når man skal sortere, ellers kan knappen føles skjult i "Alle".
+    if(chosen) s.filterCat = chosen;
+  });
   const nav = [
     ['dashboard','🏠 Dashboard'],
     ['dex','🐟 Dex'],
@@ -35,6 +45,7 @@ function MainNav(){
   ];
   return html`<nav className="main-nav" aria-label="Hovedmeny">
     ${nav.map(([key,label])=>html`<button key=${key} className=${'nav-tab'+(store.view===key?' active':'')} onClick=${()=>update(s=>{ s.view = key; })}>${label}</button>`)}
+    ${editable && html`<button className=${'nav-tab order-nav-tab'+(store.view==='dex' && store.orderOpen?' active':'')} onClick=${openOrder}>↕ Rekkefølge</button>`}
   </nav>`;
 }
 
@@ -62,8 +73,14 @@ function DexTools(){
               onClick=${()=>update(s=>{ s.filterPhoto = s.filterPhoto===true ? null : true; })}>📷 Med bilde</button>
       <button className=${'chip'+(store.filterMystery?' active':'')}
               onClick=${()=>update(s=>{ s.filterMystery = !s.filterMystery; })}>❔ Mystery</button>
-      ${editable && html`<button className=${'chip order-chip'+(store.orderOpen?' active':'')}
-              onClick=${()=>update(s=>{ s.orderOpen = !s.orderOpen; if(s.filterCat !== 'ALL') s.orderCat = s.filterCat; })}>☰ Dra rekkefølge</button>`}
+      ${editable && html`<button className=${'chip order-chip big-order-chip'+(store.orderOpen?' active':'')}
+              onClick=${()=>update(s=>{
+                s.orderOpen = !s.orderOpen;
+                const cats = catOrder();
+                const chosen = (s.filterCat && s.filterCat !== 'ALL') ? s.filterCat : (s.orderCat || cats[0]);
+                if(chosen) s.orderCat = chosen;
+                if(chosen && s.orderOpen) s.filterCat = chosen;
+              })}>↕ Endre rekkefølge</button>`}
     </div>
     <div className="search">🔎<input type="search" placeholder="Søk etter art, sted eller kommentar …" aria-label="Søk"
          value=${store.q} onChange=${e=>update(s=>{ s.q = e.target.value.trim().toLowerCase(); })}/></div>
@@ -173,6 +190,13 @@ function App(){
     <div className="toolbar main-toolbar">
       <${MainNav}/>
       <button className="tab" title="Hent kompisenes siste fangster" onClick=${()=>reload(false)}>↻ Oppdater</button>
+      ${editable && html`<button className="tab order-toolbar-btn" title="Dra fiskene i ønsket rekkefølge" onClick=${()=>update(s=>{
+        s.view='dex';
+        s.orderOpen=true;
+        const cats = catOrder();
+        const chosen = (s.filterCat && s.filterCat !== 'ALL') ? s.filterCat : (s.orderCat || cats[0]);
+        if(chosen){ s.orderCat=chosen; s.filterCat=chosen; }
+      })}>↕ Endre rekkefølge</button>`}
       ${store.guest && html`<button className="tab guest-login" onClick=${leaveGuest}>Logg inn for å redigere</button>`}
     </div>
 
@@ -197,6 +221,13 @@ function App(){
       <button className=${store.view==='fangster'?'active':''} onClick=${()=>update(s=>{s.view='fangster';})}>📜<span>Fangster</span></button>
       <button className=${store.view==='map'?'active':''} onClick=${()=>update(s=>{s.view='map';})}>🗺️<span>Kart</span></button>
       <button className=${store.view==='stats'?'active':''} onClick=${()=>update(s=>{s.view='stats';})}>📊<span>Toppen</span></button>
+      ${editable && html`<button className=${store.view==='dex' && store.orderOpen?'active':''} onClick=${()=>update(s=>{
+        s.view='dex';
+        s.orderOpen=true;
+        const cats = catOrder();
+        const chosen = (s.filterCat && s.filterCat !== 'ALL') ? s.filterCat : (s.orderCat || cats[0]);
+        if(chosen){ s.orderCat=chosen; s.filterCat=chosen; }
+      })}>↕<span>Sorter</span></button>`}
     </div>
 
     ${store.detailId && html`<${DetailModal}/>`}

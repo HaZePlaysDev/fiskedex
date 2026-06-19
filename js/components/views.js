@@ -122,6 +122,13 @@ export function DashboardView(){
       <div className="dash-card-head"><span>Snarveier</span></div>
       <div className="quick-grid">
         <button onClick=${()=>update(s=>{s.view='dex';})}>🐟 Åpne dex</button>
+        ${canEdit() && html`<button className="quick-order-btn" onClick=${()=>update(s=>{
+          s.view='dex';
+          s.orderOpen=true;
+          const cats = catOrder();
+          const chosen = (s.filterCat && s.filterCat !== 'ALL') ? s.filterCat : (s.orderCat || cats[0]);
+          if(chosen){ s.orderCat=chosen; s.filterCat=chosen; }
+        })}>↕ Endre rekkefølge</button>`}
         <button onClick=${()=>update(s=>{s.view='records';})}>🏆 Rekorder</button>
         <button onClick=${()=>update(s=>{s.view='map';})}>🗺️ Kart</button>
         <button onClick=${()=>update(s=>{s.view='fangster';})}>📜 Fangster</button>
