@@ -18,6 +18,8 @@ export const store = {
   filterCaught: null,
   filterPhoto: null,
   filterMystery: false,
+  orderOpen: false,       // viser sortering av fisk i Dex
+  orderCat: 'F',
   q: '',
   detailId: null,
   addOpen: false,
@@ -81,11 +83,20 @@ export async function reload(quiet){
       };
     }
     update(s=>{
-      s.species = speciesRows.map(r=>({
+      const catRank = c => (CATS[c] ? CATS[c].order : 999);
+      s.species = speciesRows.map((r,i)=>({
         id:r.id, name:r.name, cat:r.cat, custom:!!r.custom, sil:r.sil||null,
         info:r.info||'', min:r.min||'', fredet:!!r.fredet,
+        sort_order: Number.isFinite(Number(r.sort_order)) ? Number(r.sort_order) : i * 10,
         catches:cmap[r.id]||{},
-      }));
+      })).sort((a,b)=>{
+        const ca = catRank(a.cat), cb = catRank(b.cat);
+        if(ca !== cb) return ca - cb;
+        const oa = Number.isFinite(Number(a.sort_order)) ? Number(a.sort_order) : 999999;
+        const ob = Number.isFinite(Number(b.sort_order)) ? Number(b.sort_order) : 999999;
+        if(oa !== ob) return oa - ob;
+        return a.id.localeCompare(b.id, 'nb');
+      });
       s.members = memberRows.map(r=>r.name);
       if(s.member && !s.members.includes(s.member)) s.member = null;
       s.loaded = true;

@@ -20,7 +20,7 @@ export async function logout(){ await sb.auth.signOut(); }
 /* ---------- lesing ---------- */
 export async function fetchAll(){
   const [sp, me, ca] = await Promise.all([
-    sb.from('species').select('*').order('id'),
+    sb.from('species').select('*'),
     sb.from('members').select('name').order('name'),
     sb.from('catches').select('*'),
   ]);
@@ -86,6 +86,15 @@ export async function updateSpeciesInfo(id, details={}){
     fredet:!!details.fredet,
   }).eq('id', id);
   return !r.error;
+}
+
+export async function updateSpeciesOrder(rows){
+  // rows = [{id, sort_order}]. Oppdateres en og en for å være lett å feilsøke.
+  for(const row of rows){
+    const r = await sb.from('species').update({sort_order: row.sort_order}).eq('id', row.id);
+    if(r.error) return {ok:false, error:r.error};
+  }
+  return {ok:true};
 }
 export async function deleteSpeciesRow(id){
   await sb.from('photos').delete().eq('species_id', id);

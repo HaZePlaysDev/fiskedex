@@ -45,7 +45,7 @@ function DexTools(){
   for(const c in CATS) counts[c] = store.species.filter(s=>s.cat===c).length;
   const tabs = [{key:'ALL', name:'Alle', cnt:counts.ALL},
     ...catOrder().map(c=>({key:c, name:CATS[c].name, cnt:counts[c]||0}))];
-  const pickTab = key => update(s=>{ s.filterCat = key; s.view = 'dex'; });
+  const pickTab = key => update(s=>{ s.filterCat = key; s.view = 'dex'; if(s.orderOpen && key !== 'ALL') s.orderCat = key; });
 
   return html`<div className="dex-tools">
     <div className="tabs cat-tabs">
@@ -62,6 +62,8 @@ function DexTools(){
               onClick=${()=>update(s=>{ s.filterPhoto = s.filterPhoto===true ? null : true; })}>📷 Med bilde</button>
       <button className=${'chip'+(store.filterMystery?' active':'')}
               onClick=${()=>update(s=>{ s.filterMystery = !s.filterMystery; })}>❔ Mystery</button>
+      ${editable && html`<button className=${'chip order-chip'+(store.orderOpen?' active':'')}
+              onClick=${()=>update(s=>{ s.orderOpen = !s.orderOpen; if(s.filterCat !== 'ALL') s.orderCat = s.filterCat; })}>☰ Dra rekkefølge</button>`}
     </div>
     <div className="search">🔎<input type="search" placeholder="Søk etter art, sted eller kommentar …" aria-label="Søk"
          value=${store.q} onChange=${e=>update(s=>{ s.q = e.target.value.trim().toLowerCase(); })}/></div>
