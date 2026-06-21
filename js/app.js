@@ -7,8 +7,7 @@ import { fetchWeather } from './weather.js';
 import { DexGrid } from './components/dex-grid.js';
 import { DetailModal } from './components/detail-modal.js';
 import { DashboardView, StatsView, MapView, LogView, RecordsView, GuestView, ProfileView } from './components/views.js';
-import { LoginGate, AddSpeciesModal, AddMemberModal } from './components/modals.js';
-import { RegisterCatchModal } from './components/register-catch-modal.js';
+import { LoginGate, AddSpeciesModal, AddMemberModal, RegisterCatchModal } from './components/modals.js';
 
 const html = htm.bind(React.createElement);
 const { useEffect } = React;
@@ -264,4 +263,18 @@ function App(){
   <//>`;
 }
 
-ReactDOM.createRoot(document.getElementById('app')).render(React.createElement(App));
+class AppErrorBoundary extends React.Component {
+  constructor(props){ super(props); this.state = { error:null }; }
+  static getDerivedStateFromError(error){ return { error }; }
+  componentDidCatch(error){ console.error('FiskeDex oppstartsfeil:', error); }
+  render(){
+    if(this.state.error){
+      return html`<div className="boot-error"><h1>FiskeDex kunne ikke starte</h1><p>Prøv å laste siden på nytt. Hvis problemet fortsetter, slett nettstedsdata/cache for fiskedex.no og åpne siden igjen.</p><button className="btn primary" onClick=${()=>location.reload()}>Last inn på nytt</button></div>`;
+    }
+    return this.props.children;
+  }
+}
+
+ReactDOM.createRoot(document.getElementById('app')).render(
+  React.createElement(AppErrorBoundary, null, React.createElement(App))
+);

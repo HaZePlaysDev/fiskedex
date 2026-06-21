@@ -35,15 +35,23 @@
 <link href="https://fonts.googleapis.com/css2?family=Staatliches&family=Public+Sans:ital,wght@0,400;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 
 <!-- FiskeDex-designet -->
-<link rel="stylesheet" href="css/theme.css?v=20">
-<link rel="stylesheet" href="css/components.css?v=20">
+<link rel="stylesheet" href="css/theme.css?v=21">
+<link rel="stylesheet" href="css/components.css?v=21">
 </head>
 <body>
 
 <div id="app"></div>
+<script>
+window.addEventListener('error', function(event){
+  var root = document.getElementById('app');
+  if(root && !root.children.length){
+    root.innerHTML = '<div class="boot-error"><h1>FiskeDex lastes ikke riktig</h1><p>Last siden på nytt. Hvis det fortsatt er tomt, slett nettstedsdata/cache for fiskedex.no og prøv igjen.</p><button class="btn primary" onclick="location.reload()">Last inn på nytt</button></div>';
+  }
+});
+</script>
 
 <!-- Appen (ES-moduler) -->
-<script type="module" src="js/app.js?v=20"></script>
+<script type="module" src="js/app.js?v=21"></script>
 
 </body>
 </html>
