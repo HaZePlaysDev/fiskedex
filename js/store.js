@@ -18,6 +18,10 @@ export const store = {
   filterCaught: null,
   filterPhoto: null,
   filterMystery: false,
+  filterGps: false,
+  filterRecord: false,
+  filterMine: false,
+  sortBy: 'dex',
   orderOpen: false,       // viser sortering av fisk i Dex
   orderCat: 'F',
   q: '',
@@ -25,6 +29,8 @@ export const store = {
   addOpen: false,
   memberOpen: false,
   lightboxUrl: null,
+  catchOpen: false,
+  profileMember: null,
   toastMsg: '',
   weather: '',
 };
@@ -123,8 +129,24 @@ export function nextId(cat){
   const n = (nums.length ? Math.max(...nums) : 0) + 1;
   return cat + String(n).padStart(3,'0');
 }
+function hasGpsEntry(c){
+  return !!c && Number.isFinite(Number(c.lat)) && Number.isFinite(Number(c.lng));
+}
+
+function catchIsSpeciesRecord(s, member){
+  const current = s.catches && s.catches[member];
+  if(!current) return false;
+  const entries = catchers(s).map(m=>s.catches[m]).filter(Boolean);
+  const weight = Number(String(current.vekt||'').replace(',', '.').match(/[0-9]+(?:\.[0-9]+)?/)?.[0]);
+  const length = Number(String(current.lengde||'').replace(',', '.').match(/[0-9]+(?:\.[0-9]+)?/)?.[0]);
+  const weights = entries.map(c=>Number(String(c.vekt||'').replace(',', '.').match(/[0-9]+(?:\.[0-9]+)?/)?.[0])).filter(Number.isFinite);
+  const lengths = entries.map(c=>Number(String(c.lengde||'').replace(',', '.').match(/[0-9]+(?:\.[0-9]+)?/)?.[0])).filter(Number.isFinite);
+  return (Number.isFinite(weight) && weights.length && weight === Math.max(...weights)) ||
+         (Number.isFinite(length) && lengths.length && length === Math.max(...lengths));
+}
+
 export function visibleSpecies(){
-  return store.species.filter(s=>{
+  const filtered = store.species.filter(s=>{
     if(store.filterCat!=='ALL' && s.cat!==store.filterCat) return false;
     const c = isCaught(s);
     if(store.filterCaught===true && !c) return false;
@@ -133,6 +155,12 @@ export function visibleSpecies(){
     if(store.filterPhoto===true && !hasPhoto) return false;
     if(store.filterPhoto===false && hasPhoto) return false;
     if(store.filterMystery && c) return false;
+    const scope = store.member ? [store.member] : catchers(s);
+    if(store.filterMine){
+      if(!store.member || !(s.catches && s.catches[store.member])) return false;
+    }
+    if(store.filterGps && !scope.some(m=>hasGpsEntry(s.catches && s.catches[m]))) return false;
+    if(store.filterRecord && !scope.some(m=>catchIsSpeciesRecord(s,m))) return false;
     if(store.q){
       const q = store.q.toLowerCase();
       const catchText = catchers(s).map(m=>{ const e=s.catches[m]||{}; return [memberName(m),e.sted,e.dato,e.vekt,e.lengde,e.kommentar,e.weather,e.tide].join(' '); }).join(' ').toLowerCase();
@@ -141,6 +169,14 @@ export function visibleSpecies(){
     }
     return true;
   });
+  const latestTime = s => Math.max(0, ...catchers(s).map(m=>Date.parse((s.catches[m].created || s.catches[m].dato || '').replace(/\s/g,'T')) || 0));
+  if(store.sortBy==='name') filtered.sort((a,b)=>a.name.localeCompare(b.name,'nb'));
+  if(store.sortBy==='newest') filtered.sort((a,b)=>latestTime(b)-latestTime(a) || a.name.localeCompare(b.name,'nb'));
+  if(store.sortBy==='reactions') filtered.sort((a,b)=>{
+    const total = x=>catchers(x).reduce((n,m)=>n+Object.values(x.catches[m].reactions||{}).reduce((a,v)=>a+(Number(v)||0),0),0);
+    return total(b)-total(a) || a.name.localeCompare(b.name,'nb');
+  });
+  return filtered;
 }
 export function catOrder(){
   return Object.keys(CATS).sort((a,b)=>CATS[a].order-CATS[b].order);
@@ -149,7 +185,7 @@ export function canEdit(){
   return store.authed && !store.guest;
 }
 export function anyModalOpen(){
-  return !!(store.detailId || store.addOpen || store.memberOpen);
+  return !!(store.detailId || store.addOpen || store.memberOpen || store.catchOpen);
 }
 
 export function latestCatch(){

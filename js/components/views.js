@@ -9,11 +9,11 @@ import { esc, parseWeightKg, parseLengthCm, fmtKg, fmtCm, makeThumbFromDataUrl }
 const html = htm.bind(React.createElement);
 const { useState, useEffect, useRef } = React;
 
-function allCatchRows(){
+function allCatchRows(memberFilter = store.member){
   const rows = [];
   for(const s of store.species){
     for(const m of catchers(s)){
-      if(store.member && m!==store.member) continue;
+      if(memberFilter && m!==memberFilter) continue;
       const c = s.catches[m];
       rows.push({ t:(c.created||c.dato||''), species:s, member:m, catch:c });
     }
@@ -74,38 +74,63 @@ function MiniLeaderboard(){
   const medal = i => i===0?'🥇':i===1?'🥈':'🥉';
   if(!rows.length) return html`<p className="muted">Ingen fangster ennå.</p>`;
   return html`<div className="mini-lb">
-    ${rows.map((r,i)=>html`<button key=${r.m} onClick=${()=>update(s=>{ s.view='stats'; s.member=r.m===FELLES?null:r.m; })}>
+    ${rows.map((r,i)=>html`<button key=${r.m} onClick=${()=>update(s=>{ s.profileMember=r.m===FELLES?null:r.m; s.view=r.m===FELLES?'stats':'profiles'; })}>
       <span className="rank">${medal(i)}</span><b>${memberName(r.m)}</b><span>${r.count} arter</span>
     </button>`)}
   </div>`;
+}
+
+function catProgressRows(){
+  return catOrder().map(cat=>{
+    const list = store.species.filter(s=>s.cat===cat);
+    const caught = list.filter(s=>catchers(s).length>0).length;
+    return {cat, total:list.length, caught, pct:list.length?Math.round(100*caught/list.length):0};
+  }).filter(r=>r.total);
 }
 
 export function DashboardView(){
   useStore();
   const rows = allCatchRows();
   const latest = latestCatch();
+  const leaders = leaderboardRows().filter(r=>r.count>0);
+  const leader = leaders[0] || null;
   const tot = store.species.length;
   const caught = store.species.filter(s=>catchers(s).length>0).length;
   const pct = tot ? Math.round(caught*100/tot) : 0;
   const mystery = mysterySpecies();
-  const newest = rows[0] || null;
+  const geoCount = rows.filter(r=>r.catch.lat!=null && r.catch.lng!=null).length;
+  const photoCount = rows.filter(r=>r.catch.hasPhoto).length;
+  const progress = catProgressRows();
+  const next = [...progress].sort((a,b)=>a.pct-b.pct || a.caught-b.caught)[0] || null;
 
-  return html`<div className="dashboard">
-    <section className="dash-hero-card wide">
+  return html`<div className="dashboard dashboard-v20">
+    <section className="dash-hero-card wide dash-command-card">
       <div>
-        <div className="eyebrow">Dashboard</div>
+        <div className="eyebrow">Karmøy Fishing Championship</div>
         <h2>${caught}/${tot} arter kartlagt</h2>
-        <p>Her får dere siste fangst, lederlista, dagens mystery-art og raske snarveier.</p>
+        <p>${tot-caught ? `${tot-caught} arter mangler fortsatt. Neste mål: ${next ? CATS[next.cat].name : 'utforsk dexen'}.` : 'Alle arter er kartlagt. Legendarisk innsats.'}</p>
+        <div className="dash-hero-actions">
+          ${canEdit() && html`<button className="btn primary dashboard-catch" onClick=${()=>update(s=>{s.catchOpen=true;})}>🎣 Registrer fangst</button>`}
+          <button className="btn ghost" onClick=${()=>update(s=>{s.view='dex';})}>🐟 Utforsk Dex</button>
+          <button className="btn ghost" onClick=${()=>update(s=>{s.view='records';})}>🏆 Se rekorder</button>
+        </div>
       </div>
-      <div className="big-progress"><span>${pct}%</span><i><b style=${{width:pct+'%'}}></b></i></div>
+      <div className="big-progress"><span>${pct}%</span><i><b style=${{width:pct+'%'}}></b></i><small>FULLFØRT</small></div>
     </section>
 
-    <section className="dash-card latest-dash" onClick=${()=>latest && update(s=>{ s.detailId = latest.species.id; })}>
-      <div className="dash-card-head"><span>Siste fangst</span><button onClick=${e=>{e.stopPropagation(); update(s=>{s.view='fangster';});}}>Se alle</button></div>
-      ${latest ? html`<div className="dash-latest-body">
-        <${Thumb} species=${latest.species} member=${latest.member}/>
-        <div><h3>${latest.species.name}</h3><p><b>${memberName(latest.member)}</b>${latest.catch.sted?' · '+latest.catch.sted:''}</p><small>${[latest.catch.dato, latest.catch.vekt, latest.catch.lengde].filter(Boolean).join(' · ')}</small></div>
-      </div>` : html`<p className="muted">Ingen fangster registrert ennå.</p>`}
+    <section className="dash-card latest-dash" onClick=${()=>latest && update(s=>{s.detailId=latest.species.id;})}>
+      <div className="dash-card-head"><span>Siste fangst</span><button onClick=${e=>{e.stopPropagation();update(s=>{s.view='fangster';});}}>Se alle</button></div>
+      ${latest ? html`<div className="dash-latest-body"><${Thumb} species=${latest.species} member=${latest.member}/><div><h3>${latest.species.name}</h3><p><b>${memberName(latest.member)}</b>${latest.catch.sted?' · '+latest.catch.sted:''}</p><small>${[latest.catch.dato,latest.catch.vekt,latest.catch.lengde].filter(Boolean).join(' · ')}</small></div></div>` : html`<p className="muted">Ingen fangster registrert ennå.</p>`}
+    </section>
+
+    <section className="dash-card leader-now-card">
+      <div className="dash-card-head"><span>Leder akkurat nå</span><button onClick=${()=>update(s=>{s.view='stats';})}>Toppliste</button></div>
+      ${leader ? html`<button className="leader-now" onClick=${()=>update(s=>{s.profileMember=leader.m;s.member=leader.m;s.view='profiles';})}><span className="leader-crown">👑</span><div><h3>${memberName(leader.m)}</h3><p>${leader.count} arter · ${leader.reactions} reaksjoner</p></div><span className="leader-go">Se profil →</span></button>` : html`<p className="muted">Første fangst avgjør hvem som leder.</p>`}
+    </section>
+
+    <section className="dash-card activity-card">
+      <div className="dash-card-head"><span>Aktivitet</span><button onClick=${()=>update(s=>{s.view='map';})}>Åpne kart</button></div>
+      <div className="activity-numbers"><div><b>${rows.length}</b><span>registrerte</span></div><div><b>${photoCount}</b><span>med bilde</span></div><div><b>${geoCount}</b><span>med GPS</span></div></div>
     </section>
 
     <section className="dash-card">
@@ -113,32 +138,25 @@ export function DashboardView(){
       <${MiniLeaderboard}/>
     </section>
 
-    <section className="dash-card mystery-card" onClick=${()=>mystery && update(s=>{ s.detailId = mystery.id; })}>
-      <div className="dash-card-head"><span>Dagens mystery-art</span><button onClick=${e=>{e.stopPropagation(); update(s=>{s.view='dex'; s.filterMystery=true;});}}>Finn flere</button></div>
+    <section className="dash-card mystery-card" onClick=${()=>mystery && update(s=>{s.detailId=mystery.id;})}>
+      <div className="dash-card-head"><span>Dagens mystery-art</span><button onClick=${e=>{e.stopPropagation();update(s=>{s.view='dex';s.filterMystery=true;});}}>Finn flere</button></div>
       ${mystery ? html`<div className="mystery-big"><div className="mystery-mark">?</div><div><h3>???</h3><p>${firstSentence(mystery.info) || (mystery.min ? 'Har regel/minstemål: '+mystery.min : 'Ukjent art i dexen')}</p><small>${CATS[mystery.cat] ? CATS[mystery.cat].name : 'Annet'} · ${mystery.id}</small></div></div>` : html`<p className="muted">Alle arter er fanget. Sykt.</p>`}
     </section>
 
     <section className="dash-card quick-card">
       <div className="dash-card-head"><span>Snarveier</span></div>
       <div className="quick-grid">
-        <button onClick=${()=>update(s=>{s.view='dex';})}>🐟 Åpne dex</button>
-        ${canEdit() && html`<button className="quick-order-btn" onClick=${()=>update(s=>{
-          s.view='dex';
-          s.orderOpen=true;
-          const cats = catOrder();
-          const chosen = (s.filterCat && s.filterCat !== 'ALL') ? s.filterCat : (s.orderCat || cats[0]);
-          if(chosen){ s.orderCat=chosen; s.filterCat=chosen; }
-        })}>↕ Endre rekkefølge</button>`}
+        <button onClick=${()=>update(s=>{s.view='profiles';s.profileMember=s.member||s.members[0]||null;})}>👤 Fiskerprofiler</button>
+        <button onClick=${()=>update(s=>{s.view='map';})}>🗺️ Fangstkart</button>
         <button onClick=${()=>update(s=>{s.view='records';})}>🏆 Rekorder</button>
-        <button onClick=${()=>update(s=>{s.view='map';})}>🗺️ Kart</button>
-        <button onClick=${()=>update(s=>{s.view='fangster';})}>📜 Fangster</button>
+        <button onClick=${()=>update(s=>{s.view='dex';s.filterRecord=true;})}>🏆 Artsrekorder</button>
       </div>
     </section>
 
-    ${newest && html`<section className="dash-card wide story-card">
-      <div className="dash-card-head"><span>Siste historie</span></div>
-      <p><b>${memberName(newest.member)}</b> registrerte <b>${newest.species.name}</b>${newest.catch.sted?' ved '+newest.catch.sted:''}${newest.catch.kommentar?' – “'+newest.catch.kommentar+'”':''}</p>
-    </section>`}
+    <section className="dash-card wide progress-card-v20">
+      <div className="dash-card-head"><span>Veien videre</span><button onClick=${()=>update(s=>{s.view='dex';})}>Åpne Dex</button></div>
+      <div className="dash-cat-progress">${progress.map(r=>html`<button key=${r.cat} onClick=${()=>update(s=>{s.view='dex';s.filterCat=r.cat;})}><span>${CATS[r.cat].name}</span><i><b style=${{width:r.pct+'%'}}></b></i><strong>${r.caught}/${r.total}</strong></button>`)}</div>
+    </section>
   </div>`;
 }
 
@@ -250,10 +268,10 @@ export function StatsView(){
     ${!leaderboard.length && html`<div className="empty-state">Ingen fiskere ennå – legg til gjengen med «+ Fisker»-knappen!</div>`}
     <div className="leader-card-grid">
       ${leaderboard.map((st,i)=>html`
-        <div key=${st.m} className=${'leader-card'+(i===0&&st.count>0?' gold':'')}>
+        <div key=${st.m} className=${'leader-card'+(i===0&&st.count>0?' gold':'')} onClick=${()=>{ if(st.m!==FELLES) update(s=>{s.profileMember=st.m;s.member=st.m;s.view='profiles';}); }}>
           <div className="leader-rank">${medal(i)}</div>
           <div className="leader-main"><h3>${memberName(st.m)}</h3><p>${st.count} ${st.count===1?'art':'arter'} · ${st.reactions} reaksjoner</p></div>
-          ${editable && st.m!==FELLES && html`<button className="lb-del" onClick=${()=>delMember(st.m)}>${delArmed===st.m ? 'Sikker? Trykk igjen' : 'Slett'}</button>`}
+          ${editable && st.m!==FELLES && html`<button className="lb-del" onClick=${e=>{e.stopPropagation();delMember(st.m);}}>${delArmed===st.m ? 'Sikker? Trykk igjen' : 'Slett'}</button>`}
           <div className="leader-facts">
             ${st.heaviest && html`<span>⚖️ Tyngst: ${st.heaviest.art} (${fmtKg(st.heaviest.w)})</span>`}
             ${st.longest && html`<span>📏 Lengst: ${st.longest.art} (${fmtCm(st.longest.l)})</span>`}
@@ -276,152 +294,196 @@ export function StatsView(){
 
 export function RecordsView(){
   useStore();
-  const rows = allCatchRows();
-  let heaviest=null, longest=null, mostReacted=null, latestSpecies=null;
+  const [recordCat, setRecordCat] = useState('ALL');
+  const rows = allCatchRows(null);
+  let heaviest=null, longest=null, mostReacted=null, newest=null;
+  const firstBySpecies = new Map();
   for(const r of rows){
     const w = parseWeightKg(r.catch.vekt); if(w!=null && (!heaviest || w>heaviest.value)) heaviest={value:w,row:r};
     const l = parseLengthCm(r.catch.lengde); if(l!=null && (!longest || l>longest.value)) longest={value:l,row:r};
-    const rt = reactionTotal(r.catch); if(rt>0 && (!mostReacted || rt>mostReacted.value)) mostReacted={value:rt,row:r};
+    const reacts = reactionTotal(r.catch); if(reacts>0 && (!mostReacted || reacts>mostReacted.value)) mostReacted={value:reacts,row:r};
+    if(!newest || r.t>newest.t) newest=r;
+    const old = firstBySpecies.get(r.species.id);
+    if(!old || r.t<old.t) firstBySpecies.set(r.species.id,r);
   }
-  if(rows.length) latestSpecies = rows[0];
-  const photoRows = rows.filter(r=>r.catch.hasPhoto).length;
+  const pioneer = new Map();
+  for(const row of firstBySpecies.values()) pioneer.set(row.member,(pioneer.get(row.member)||0)+1);
+  const topPioneer = [...pioneer.entries()].sort((a,b)=>b[1]-a[1])[0] || null;
+  const personRows = leaderboardRows().filter(r=>r.count>0);
+  const mythicalLeaders = personRows.map(r=>({m:r.m,count:store.species.filter(s=>s.cat==='M' && s.catches && s.catches[r.m]).length})).sort((a,b)=>b.count-a.count);
+  const artRecords = store.species
+    .filter(s=>recordCat==='ALL' || s.cat===recordCat)
+    .map(s=>{
+      const entries = catchers(s).map(member=>({member,catch:s.catches[member]}));
+      let heavy=null, long=null;
+      for(const e of entries){
+        const w=parseWeightKg(e.catch.vekt); if(w!=null && (!heavy || w>heavy.value)) heavy={value:w,...e};
+        const l=parseLengthCm(e.catch.lengde); if(l!=null && (!long || l>long.value)) long={value:l,...e};
+      }
+      return {species:s,heavy,long,count:entries.length};
+    })
+    .filter(r=>r.heavy || r.long || r.count)
+    .sort((a,b)=>a.species.name.localeCompare(b.species.name,'nb'));
 
-  function RecCard({icon,title,main,sub,row}){
-    return html`<div className="record-card" onClick=${()=>row && update(s=>{s.detailId=row.species.id;})}>
-      <div className="rec-icon">${icon}</div><div><span>${title}</span><h3>${main || 'Ingen data ennå'}</h3>${sub && html`<p>${sub}</p>`}</div>
-    </div>`;
+  function openRow(row){
+    if(!row) return;
+    update(s=>{s.member=row.member; s.detailId=row.species.id;});
   }
-  const rowText = r => `${r.species.name} · ${memberName(r.member)}${r.catch.sted?' · '+r.catch.sted:''}`;
-  return html`<div className="records-grid">
-    <${RecCard} icon="⚖️" title="Tyngste fisk" main=${heaviest ? `${heaviest.row.species.name} – ${fmtKg(heaviest.value)}` : ''} sub=${heaviest ? rowText(heaviest.row) : ''} row=${heaviest&&heaviest.row}/>
-    <${RecCard} icon="📏" title="Lengste fisk" main=${longest ? `${longest.row.species.name} – ${fmtCm(longest.value)}` : ''} sub=${longest ? rowText(longest.row) : ''} row=${longest&&longest.row}/>
-    <${RecCard} icon="🆕" title="Nyeste fangst" main=${latestSpecies ? latestSpecies.species.name : ''} sub=${latestSpecies ? rowText(latestSpecies) : ''} row=${latestSpecies}/>
-    <${RecCard} icon="🔥" title="Mest reagert på" main=${mostReacted ? `${mostReacted.row.species.name} – ${mostReacted.value} reaksjoner` : ''} sub=${mostReacted ? rowText(mostReacted.row) : ''} row=${mostReacted&&mostReacted.row}/>
-    <div className="record-card"><div className="rec-icon">📷</div><div><span>Bilder</span><h3>${photoRows} fangster med bilde</h3><p>Galleribilder kommer i tillegg.</p></div></div>
-    <div className="record-card"><div className="rec-icon">🧭</div><div><span>Fangststeder</span><h3>${rows.filter(r=>r.catch.lat!=null && r.catch.lng!=null).length} fangster på kart</h3><p>Legg posisjon i artskortet.</p></div></div>
+  function RecCard({icon,title,main,sub,row,accent=''}){
+    return html`<button className=${'record-card record-highlight '+accent} onClick=${()=>openRow(row)} disabled=${!row}>
+      <div className="rec-icon">${icon}</div><div><span>${title}</span><h3>${main || 'Ingen data ennå'}</h3>${sub && html`<p>${sub}</p>`}</div>
+    </button>`;
+  }
+  const rowText = r => `${memberName(r.member)}${r.catch.sted?' · '+r.catch.sted:''}`;
+
+  return html`<div className="records-page">
+    <div className="section-title-row"><div><div className="eyebrow">Hall of fame</div><h2>Rekorder</h2></div><button className="btn ghost" onClick=${()=>update(s=>{s.view='dex';s.filterRecord=true;})}>🏆 Vis rekordarter i Dex</button></div>
+    <section className="records-hero">
+      <div><div className="eyebrow">Gjengens beste øyeblikk</div><h3>${rows.length} registrerte fangster</h3><p>Her samles både de største fiskene, de ivrigste fiskerne og artsrekordene.</p></div>
+      <div className="records-hero-badges"><span>⚖️ ${heaviest ? fmtKg(heaviest.value) : '–'}</span><span>📏 ${longest ? fmtCm(longest.value) : '–'}</span><span>✨ ${mythicalLeaders[0]?.count || 0}</span></div>
+    </section>
+
+    <div className="records-grid record-highlight-grid">
+      <${RecCard} icon="⚖️" title="Tyngste fisk" main=${heaviest ? `${heaviest.row.species.name} – ${fmtKg(heaviest.value)}` : ''} sub=${heaviest ? rowText(heaviest.row) : ''} row=${heaviest&&heaviest.row}/>
+      <${RecCard} icon="📏" title="Lengste fisk" main=${longest ? `${longest.row.species.name} – ${fmtCm(longest.value)}` : ''} sub=${longest ? rowText(longest.row) : ''} row=${longest&&longest.row}/>
+      <${RecCard} icon="🆕" title="Nyeste fangst" main=${newest ? newest.species.name : ''} sub=${newest ? rowText(newest) : ''} row=${newest}/>
+      <${RecCard} icon="🔥" title="Mest reagert på" main=${mostReacted ? `${mostReacted.row.species.name} – ${mostReacted.value} reaksjoner` : ''} sub=${mostReacted ? rowText(mostReacted.row) : ''} row=${mostReacted&&mostReacted.row}/>
+    </div>
+
+    <section className="record-section-grid">
+      <div className="stats-card record-board"><h3>Fisker-rekorder</h3>
+        ${personRows.length ? html`<div className="record-leader-list">
+          ${personRows.slice(0,6).map((r,i)=>html`<button key=${r.m} onClick=${()=>update(s=>{s.member=r.m;s.profileMember=r.m;s.view='profiles';})}><span>${i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1)+'.'}</span><b>${memberName(r.m)}</b><small>${r.count} arter</small></button>`)}
+        </div>` : html`<p className="muted">Ingen fiskerrekorder ennå.</p>`}
+      </div>
+      <div className="stats-card record-board"><h3>Spesialrekorder</h3>
+        <div className="record-special-lines">
+          <button onClick=${()=>topPioneer && update(s=>{s.member=topPioneer[0];s.profileMember=topPioneer[0];s.view='profiles';})}><span>🆕</span><div><b>Pionér</b><small>${topPioneer ? `${memberName(topPioneer[0])} var først på ${topPioneer[1]} arter` : 'Mangler datagrunnlag'}</small></div></button>
+          <button onClick=${()=>mythicalLeaders[0] && update(s=>{s.member=mythicalLeaders[0].m;s.profileMember=mythicalLeaders[0].m;s.view='profiles';})}><span>✨</span><div><b>Mythical hunter</b><small>${mythicalLeaders[0]?.count ? `${memberName(mythicalLeaders[0].m)} har ${mythicalLeaders[0].count} encounters` : 'Ingen encounters ennå'}</small></div></button>
+          <div><span>📍</span><div><b>Kartlagt</b><small>${rows.filter(r=>r.catch.lat!=null && r.catch.lng!=null).length} fangster har GPS-posisjon</small></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section className="art-records-section">
+      <div className="section-title-row"><div><div className="eyebrow">Per art</div><h2>Artsrekorder</h2></div><div className="record-cat-filters"><button className=${recordCat==='ALL'?'active':''} onClick=${()=>setRecordCat('ALL')}>Alle</button>${catOrder().map(c=>html`<button key=${c} className=${recordCat===c?'active':''} onClick=${()=>setRecordCat(c)}>${CATS[c].name}</button>`)}</div></div>
+      <div className="art-record-list">
+        ${artRecords.length ? artRecords.map(r=>html`<button key=${r.species.id} className="art-record-row" onClick=${()=>update(s=>{s.detailId=r.species.id;})}>
+          <div><b>${r.species.name}</b><small>${r.species.id} · ${r.count} registrert</small></div>
+          <span>${r.heavy ? `⚖️ ${fmtKg(r.heavy.value)} · ${memberName(r.heavy.member)}` : '–'}</span>
+          <span>${r.long ? `📏 ${fmtCm(r.long.value)} · ${memberName(r.long.member)}` : '–'}</span>
+        </button>`) : html`<p className="muted">Ingen fangster med mål eller vekt i dette filteret.</p>`}
+      </div>
+    </section>
   </div>`;
 }
 
 /* ---------- 🗺️ Fangstkart ---------- */
 const MAP_CAT_COLORS = {
-  F:'#2f7d5b',   // ferskvann
-  K:'#e8612c',   // kystfiske
-  B:'#2364a0',   // havfiske
-  H:'#1398a5',   // havdyr
-  M:'#7b3fb2',   // mythical encounters
+  F:'#2f7d5b', K:'#e8612c', B:'#2364a0', H:'#1398a5', M:'#7b3fb2',
 };
 const MAP_CAT_ICONS = {F:'🏞️', K:'🌊', B:'⚓', H:'🦀', M:'✨'};
 function mapCatColor(cat){ return MAP_CAT_COLORS[cat] || '#56684c'; }
 function mapCatIcon(cat){ return MAP_CAT_ICONS[cat] || '🐟'; }
 function mapPinIcon(species){
   const color = mapCatColor(species.cat);
-  const icon = mapCatIcon(species.cat);
-  return L.divIcon({
-    className:'fish-pin-wrap',
-    html:`<div class="fish-pin" style="--pin:${color}"><span>${icon}</span></div>`,
-    iconSize:[36,42],
-    iconAnchor:[18,40],
-    popupAnchor:[0,-38],
-  });
+  return L.divIcon({className:'fish-pin-wrap',html:`<div class="fish-pin" style="--pin:${color}"><span>${mapCatIcon(species.cat)}</span></div>`,iconSize:[36,42],iconAnchor:[18,40],popupAnchor:[0,-38]});
+}
+function mapClusterIcon(rows){
+  const cats=[...new Set(rows.map(r=>r.species.cat))];
+  const color=cats.length===1?mapCatColor(cats[0]):'#122b36';
+  const icon=cats.length===1?mapCatIcon(cats[0]):'🐟';
+  return L.divIcon({className:'fish-pin-wrap',html:`<div class="fish-cluster-pin" style="--pin:${color}"><span>${icon}</span><b>${rows.length}</b></div>`,iconSize:[46,46],iconAnchor:[23,23],popupAnchor:[0,-24]});
+}
+function rowDate(r){ return String(r.catch.dato || r.catch.created || '').slice(0,10); }
+function seasonFor(date){
+  const m=Number((date||'').slice(5,7));
+  if(!m) return 'Ukjent';
+  if([12,1,2].includes(m)) return 'Vinter';
+  if([3,4,5].includes(m)) return 'Vår';
+  if([6,7,8].includes(m)) return 'Sommer';
+  return 'Høst';
+}
+function mapPopupRow(r){
+  return `<li><i style="background:${mapCatColor(r.species.cat)}"></i><b>${esc(r.species.name)}</b> · ${esc(memberName(r.member))}${r.catch.sted ? ' · '+esc(r.catch.sted):''}</li>`;
 }
 
 export function MapView(){
   useStore();
   const [mapCat, setMapCat] = useState('ALL');
-  const mapTabs = [{key:'ALL', name:'Alle'}, ...catOrder().map(c=>({key:c, name:CATS[c].name}))];
+  const [mapMember, setMapMember] = useState(store.member || 'ALL');
+  const [mapSeason, setMapSeason] = useState('ALL');
+  const [mapYear, setMapYear] = useState('ALL');
+  const [onlyPhoto, setOnlyPhoto] = useState(false);
+  useEffect(()=>{ setMapMember(store.member || 'ALL'); }, [store.member]);
+
+  const mapTabs=[{key:'ALL',name:'Alle'},...catOrder().map(c=>({key:c,name:CATS[c].name}))];
+  const allRows=allCatchRows(mapMember==='ALL'?null:mapMember);
+  const years=[...new Set(allRows.map(rowDate).filter(d=>/^\d{4}/.test(d)).map(d=>d.slice(0,4)))].sort().reverse();
+  const rows=allRows.filter(r=>{
+    if(mapCat!=='ALL' && r.species.cat!==mapCat) return false;
+    const date=rowDate(r);
+    if(mapSeason!=='ALL' && seasonFor(date)!==mapSeason) return false;
+    if(mapYear!=='ALL' && !date.startsWith(mapYear)) return false;
+    if(onlyPhoto && !r.catch.hasPhoto) return false;
+    return Number.isFinite(Number(r.catch.lat)) && Number.isFinite(Number(r.catch.lng));
+  });
+  const dataKey=rows.map(r=>[r.species.id,r.member,r.catch.lat,r.catch.lng,r.catch.dato,r.catch.hasPhoto].join('|')).join('~');
 
   useEffect(()=>{
-    if(typeof L==='undefined'){
-      document.getElementById('mapBox').innerHTML = '<p style="padding:20px">Kartbiblioteket fikk ikke lastet – sjekk nettet.</p>';
-      return;
-    }
-    const map = L.map('mapBox',{scrollWheelZoom:true}).setView(KARMOY, 10);
+    const box=document.getElementById('mapBox');
+    if(!box) return;
+    if(typeof L==='undefined'){ box.innerHTML='<p style="padding:20px">Kartbiblioteket fikk ikke lastet – sjekk nettet.</p>'; return; }
+    const map=L.map('mapBox',{scrollWheelZoom:true}).setView(KARMOY,10);
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(map);
-    map.createPane('heatPane');
-    map.getPane('heatPane').style.zIndex = 350;
-
-    const pts = [];
-    const clusters = new Map();
-
-    for(const s of store.species){
-      if(mapCat !== 'ALL' && s.cat !== mapCat) continue;
-      for(const m of catchers(s)){
-        if(store.member && m!==store.member) continue;
-        const c = s.catches[m];
-        if(c.lat!=null && c.lng!=null){
-          const lat = Number(c.lat), lng = Number(c.lng);
-          if(!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
-          pts.push([lat,lng]);
-
-          const ckey = `${s.cat}|${Math.round(lat*1000)/1000}|${Math.round(lng*1000)/1000}`;
-          const cl = clusters.get(ckey) || {cat:s.cat, latSum:0, lngSum:0, n:0, names:new Set()};
-          cl.latSum += lat; cl.lngSum += lng; cl.n++; cl.names.add(s.name);
-          clusters.set(ckey, cl);
-
-          const popup = `<div class="map-popup">
-            <b>${esc(s.name)}</b><br>
-            <span class="map-pop-cat" style="background:${mapCatColor(s.cat)}">${esc(CATS[s.cat]?.name || 'Annet')}</span><br>
-            ${esc(memberName(m))}${c.dato?' · '+esc(c.dato):''}
-            ${c.vekt?'<br>⚖️ '+esc(c.vekt):''}
-            ${c.lengde?'<br>📏 '+esc(c.lengde):''}
-            ${c.sted?'<br>📍 '+esc(c.sted):''}
-            ${c.weather?'<br>🌦 '+esc(c.weather):''}
-          </div>`;
-
-          L.marker([lat,lng],{icon:mapPinIcon(s), riseOnHover:true})
-            .addTo(map)
-            .bindPopup(popup);
-        }
+    map.createPane('heatPane'); map.getPane('heatPane').style.zIndex=350;
+    const groups=new Map();
+    for(const r of rows){
+      const lat=Number(r.catch.lat),lng=Number(r.catch.lng);
+      const key=`${Math.round(lat*900)/900}|${Math.round(lng*900)/900}`;
+      const group=groups.get(key)||{rows:[],latSum:0,lngSum:0};
+      group.rows.push(r); group.latSum+=lat; group.lngSum+=lng; groups.set(key,group);
+    }
+    const pts=[];
+    for(const group of groups.values()){
+      const lat=group.latSum/group.rows.length,lng=group.lngSum/group.rows.length;
+      pts.push([lat,lng]);
+      const cats=[...new Set(group.rows.map(r=>r.species.cat))];
+      const color=cats.length===1?mapCatColor(cats[0]):'#122b36';
+      const radius=Math.min(1500,170+Math.sqrt(group.rows.length)*310);
+      L.circle([lat,lng],{pane:'heatPane',radius,color,fillColor:color,weight:2,opacity:.44,fillOpacity:Math.min(.33,.09+group.rows.length*.035)}).addTo(map).bindTooltip(`${group.rows.length} fangst${group.rows.length===1?'':'er'} i området`);
+      if(group.rows.length===1){
+        const r=group.rows[0];
+        const popup=`<div class="map-popup"><b>${esc(r.species.name)}</b><br><span class="map-pop-cat" style="background:${mapCatColor(r.species.cat)}">${esc(CATS[r.species.cat]?.name||'Annet')}</span><br>${esc(memberName(r.member))}${r.catch.dato?' · '+esc(r.catch.dato):''}${r.catch.vekt?'<br>⚖️ '+esc(r.catch.vekt):''}${r.catch.lengde?'<br>📏 '+esc(r.catch.lengde):''}${r.catch.sted?'<br>📍 '+esc(r.catch.sted):''}${r.catch.weather?'<br>🌦 '+esc(r.catch.weather):''}</div>`;
+        L.marker([lat,lng],{icon:mapPinIcon(r.species),riseOnHover:true}).addTo(map).bindPopup(popup).on('dblclick',()=>update(s=>{s.member=r.member;s.detailId=r.species.id;}));
+      }else{
+        const popup=`<div class="map-popup cluster-popup"><b>${group.rows.length} fangster i samme område</b><ul>${group.rows.map(mapPopupRow).join('')}</ul><small>Trykk på en enkelt pin andre steder for detaljer.</small></div>`;
+        L.marker([lat,lng],{icon:mapClusterIcon(group.rows),riseOnHover:true}).addTo(map).bindPopup(popup);
       }
     }
-
-    for(const cl of clusters.values()){
-      const lat = cl.latSum / cl.n, lng = cl.lngSum / cl.n;
-      const color = mapCatColor(cl.cat);
-      const radius = Math.min(1100, 180 + Math.sqrt(cl.n) * 230);
-      const innerRadius = Math.max(90, radius * .42);
-      L.circle([lat,lng],{
-        pane:'heatPane', radius, color, fillColor:color, weight:2, opacity:.42,
-        fillOpacity:Math.min(.24, .075 + cl.n*.026),
-      }).addTo(map).bindTooltip(`${cl.n} fangst${cl.n===1?'':'er'} · ${CATS[cl.cat]?.name || 'Annet'}`);
-      L.circle([lat,lng],{
-        pane:'heatPane', radius:innerRadius, color, fillColor:color, weight:1, opacity:.35,
-        fillOpacity:Math.min(.36, .13 + cl.n*.035),
-      }).addTo(map);
-    }
-
     if(pts.length) map.fitBounds(pts,{padding:[44,44],maxZoom:13});
-    setTimeout(()=>map.invalidateSize(), 80);
-    return ()=>{ map.remove(); };
-  }, [store.member, store.species.length, mapCat]);
+    setTimeout(()=>map.invalidateSize(),80);
+    return ()=>map.remove();
+  },[dataKey]);
 
-  return html`
-  <div className="stats-card map-card" style=${{marginTop:'18px'}}>
-    <div className="map-head">
-      <div>
-        <h3>Fangstkart</h3>
-        <p className="muted">Fargede pins viser kategori. Sirklene under viser fangst-tetthet.</p>
-      </div>
-      <div className="map-viewing">${store.member ? memberName(store.member) : 'Alle fiskere'}</div>
-    </div>
-    <div className="map-tools">
-      ${mapTabs.map(t=>html`<button key=${t.key} className=${'map-cat'+(mapCat===t.key?' active':'')}
-        style=${t.key!=='ALL'?{borderColor:mapCatColor(t.key)}:null}
-        onClick=${()=>setMapCat(t.key)}>
-        ${t.key==='ALL'?'🧭':mapCatIcon(t.key)} ${t.name}
-      </button>`)}
+  const members=[...store.members];
+  if(store.species.some(s=>s.catches && s.catches[FELLES]) && !members.includes(FELLES)) members.push(FELLES);
+  return html`<div className="stats-card map-card" style=${{marginTop:'18px'}}>
+    <div className="map-head"><div><div className="eyebrow">Fangstkart</div><h3>Kartlegg historiene</h3><p className="muted">Fargede pins viser type fangst. Tall-pins samler fangster som ligger nær hverandre.</p></div><div className="map-viewing">${rows.length} synlige fangster</div></div>
+    <div className="map-tools">${mapTabs.map(t=>html`<button key=${t.key} className=${'map-cat'+(mapCat===t.key?' active':'')} style=${t.key!=='ALL'?{borderColor:mapCatColor(t.key)}:null} onClick=${()=>setMapCat(t.key)}>${t.key==='ALL'?'🧭':mapCatIcon(t.key)} ${t.name}</button>`)}</div>
+    <div className="map-filter-grid">
+      <label>Fisker<select value=${mapMember} onChange=${e=>setMapMember(e.target.value)}><option value="ALL">Alle fiskere</option>${members.map(m=>html`<option key=${m} value=${m}>${memberName(m)}</option>`)}</select></label>
+      <label>Årstid<select value=${mapSeason} onChange=${e=>setMapSeason(e.target.value)}><option value="ALL">Alle årstider</option><option>Vinter</option><option>Vår</option><option>Sommer</option><option>Høst</option></select></label>
+      <label>År<select value=${mapYear} onChange=${e=>setMapYear(e.target.value)}><option value="ALL">Alle år</option>${years.map(y=>html`<option key=${y}>${y}</option>`)}</select></label>
+      <button className=${'map-photo-filter'+(onlyPhoto?' active':'')} onClick=${()=>setOnlyPhoto(!onlyPhoto)}>📷 Kun med bilde</button>
     </div>
     <div id="mapBox" className="map-box"></div>
-    <div className="map-legend">
-      ${catOrder().map(c=>html`<span key=${c}><i style=${{background:mapCatColor(c)}}></i>${mapCatIcon(c)} ${CATS[c].name}</span>`)}
-    </div>
-    <p className="muted" style=${{marginTop:'8px'}}>
-      Trykk på en pin for fangstdetaljer. Posisjoner legges til i artskortet med 📍/GPS-knappen.
-    </p>
+    <div className="map-legend">${catOrder().map(c=>html`<span key=${c}><i style=${{background:mapCatColor(c)}}></i>${mapCatIcon(c)} ${CATS[c].name}</span>`)}</div>
+    <p className="muted" style=${{marginTop:'8px'}}>Dobbelttrykk på en enkel pin for å åpne artskortet. Varme sirkler blir større der flere fangster ligger tett.</p>
   </div>`;
 }
 
-function CatchCard({r}){
+function CatchCard({r,onOpen}){
   const [url,setUrl] = useState(null);
   useEffect(()=>{
     let alive = true;
@@ -430,7 +492,7 @@ function CatchCard({r}){
     return ()=>{ alive=false; };
   }, [r.species.id, r.member, r.catch.hasPhoto]);
   const extra = [r.catch.sted, r.catch.vekt, r.catch.lengde, r.catch.weather].filter(Boolean).join(' · ');
-  return html`<article className="catch-card" onClick=${()=>update(st=>{ st.detailId = r.species.id; })}>
+  return html`<article className="catch-card" onClick=${onOpen || (()=>update(st=>{ st.member=r.member; st.detailId = r.species.id; }))}>
     <div className="catch-photo">${url ? html`<img src=${url} alt=""/>` : html`<span>${r.catch.hasPhoto?'📷':'🐟'}</span>`}</div>
     <div className="catch-body"><div className="eyebrow">${r.catch.dato || (r.catch.created||'').slice(0,10) || 'Ukjent dato'}</div><h3>${r.species.name}</h3>
       <p><b>${memberName(r.member)}</b>${extra?' · '+extra:''}</p>
@@ -446,13 +508,77 @@ export function LogView(){
   const rows = allCatchRows().slice(0,150);
   return html`
   <div className="catch-page">
-    <div className="section-title-row"><div><div className="eyebrow">Fangster</div><h2>Alle registrerte fangster</h2></div><button className="btn ghost" onClick=${()=>reload(false)}>↻ Oppdater</button></div>
+    <div className="section-title-row"><div><div className="eyebrow">Fangster</div><h2>Alle registrerte fangster</h2></div><div className="log-actions">${canEdit() && html`<button className="btn primary" onClick=${()=>update(s=>{s.catchOpen=true;})}>🎣 Registrer fangst</button>`}<button className="btn ghost" onClick=${()=>reload(false)}>↻ Oppdater</button></div></div>
     ${!rows.length && html`<div className="empty-state">Ingen fangster registrert ennå – første kast gjenstår!</div>`}
     <div className="catch-grid">
       ${rows.map(r=>html`<${CatchCard} key=${r.species.id+'|'+r.member} r=${r}/>`)}
     </div>
   </div>`;
 }
+
+export function ProfileView(){
+  useStore();
+  const allMembers=[...store.members];
+  if(store.species.some(s=>s.catches && s.catches[FELLES]) && !allMembers.includes(FELLES)) allMembers.push(FELLES);
+  const memberKey=allMembers.join('|');
+  const [selected,setSelected]=useState(store.profileMember || store.member || allMembers[0] || '');
+  useEffect(()=>{
+    const wanted=store.profileMember || store.member || allMembers[0] || '';
+    if(wanted && allMembers.includes(wanted)) setSelected(wanted);
+  },[store.profileMember,store.member,memberKey]);
+
+  if(!allMembers.length) return html`<div className="empty-state">Legg til minst én fisker før dere åpner profiler.</div>`;
+  const rows=allCatchRows(selected);
+  const leaderboard=leaderboardRows();
+  const rank=Math.max(0,leaderboard.findIndex(r=>r.m===selected))+1;
+  const stats=leaderboard.find(r=>r.m===selected) || {count:0,reactions:0};
+  const photos=rows.filter(r=>r.catch.hasPhoto).length;
+  const positions=rows.filter(r=>r.catch.lat!=null && r.catch.lng!=null).length;
+  const mythical=rows.filter(r=>r.species.cat==='M').length;
+  let heaviest=null,longest=null;
+  for(const r of rows){
+    const w=parseWeightKg(r.catch.vekt); if(w!=null && (!heaviest || w>heaviest.value)) heaviest={value:w,row:r};
+    const l=parseLengthCm(r.catch.lengde); if(l!=null && (!longest || l>longest.value)) longest={value:l,row:r};
+  }
+  const byCat={};
+  for(const r of rows) byCat[r.species.cat]=(byCat[r.species.cat]||0)+1;
+  const favourite=Object.entries(byCat).sort((a,b)=>b[1]-a[1])[0];
+  const badges=[];
+  if(rows.length) badges.push(['🎣','Første fangst','Har registrert fangst']);
+  if(rows.length>=10) badges.push(['🧭','Artsjeger','10 eller flere arter']);
+  if(photos>=5) badges.push(['📸','Fotograf','5 fangster med bilde']);
+  if(positions>=5) badges.push(['📍','Kartlegger','5 fangster med GPS']);
+  if(mythical) badges.push(['✨','Mythical hunter',`${mythical} encounter${mythical===1?'':'s'}`]);
+  const changeMember=m=>{setSelected(m);update(s=>{s.profileMember=m;s.member=m;});};
+
+  return html`<div className="profile-page">
+    <div className="section-title-row"><div><div className="eyebrow">Fiskerprofil</div><h2>Din FiskeDex</h2></div><button className="btn ghost" onClick=${()=>update(s=>{s.member=selected;s.view='map';})}>🗺️ Vis på kart</button></div>
+    <section className="profile-hero">
+      <div className="profile-avatar">${selected===FELLES?'👥':selected.slice(0,1).toUpperCase()}</div>
+      <div className="profile-intro"><label>Velg fisker<select value=${selected} onChange=${e=>changeMember(e.target.value)}>${allMembers.map(m=>html`<option key=${m} value=${m}>${memberName(m)}</option>`)}</select></label><h3>${memberName(selected)}</h3><p>${rank ? `#${rank} på topplisten` : 'Klar for første fangst'} · ${stats.count||0} arter registrert · ${stats.reactions||0} reaksjoner</p></div>
+      <div className="profile-hero-actions">${canEdit() && html`<button className="btn primary" onClick=${()=>update(s=>{s.member=selected;s.catchOpen=true;})}>🎣 Registrer fangst</button>`}<button className="btn ghost" onClick=${()=>update(s=>{s.member=selected;s.view='dex';s.filterMine=true;})}>🐟 Se min Dex</button></div>
+    </section>
+
+    <section className="profile-stat-grid">
+      <div><span>ARTER</span><b>${rows.length}</b><small>registrert</small></div>
+      <div><span>FANGSTBILDER</span><b>${photos}</b><small>lagret</small></div>
+      <div><span>KARTPINS</span><b>${positions}</b><small>med GPS</small></div>
+      <div><span>MYTHICAL</span><b>${mythical}</b><small>encounters</small></div>
+    </section>
+
+    <section className="profile-content-grid">
+      <div className="stats-card profile-best"><div className="dash-card-head"><span>Personlige rekorder</span><button onClick=${()=>update(s=>{s.view='records';})}>Alle rekorder</button></div>
+        <div className="profile-record-lines"><div><span>⚖️</span><p><b>Tyngste</b><small>${heaviest ? `${heaviest.row.species.name} · ${fmtKg(heaviest.value)}` : 'Ingen vekt registrert'}</small></p></div><div><span>📏</span><p><b>Lengste</b><small>${longest ? `${longest.row.species.name} · ${fmtCm(longest.value)}` : 'Ingen lengde registrert'}</small></p></div><div><span>🌊</span><p><b>Favorittområde</b><small>${favourite ? `${CATS[favourite[0]]?.name || 'Annet'} · ${favourite[1]} arter` : 'Ingen fangster ennå'}</small></p></div></div>
+      </div>
+      <div className="stats-card profile-badges"><div className="dash-card-head"><span>Merker</span></div>${badges.length ? html`<div className="badge-grid">${badges.map(b=>html`<div key=${b[1]}><span>${b[0]}</span><b>${b[1]}</b><small>${b[2]}</small></div>`)}</div>` : html`<p className="muted">Første merke kommer når du registrerer en fangst.</p>`}</div>
+    </section>
+
+    <section className="profile-recent"><div className="section-title-row"><div><div className="eyebrow">Siste fangster</div><h2>${memberName(selected)}s fangster</h2></div><button className="btn ghost" onClick=${()=>update(s=>{s.member=selected;s.view='fangster';})}>Se alle</button></div>
+      ${rows.length ? html`<div className="catch-grid">${rows.slice(0,6).map(r=>html`<${CatchCard} key=${r.species.id+'|'+r.member} r=${r} onOpen=${()=>update(s=>{s.member=selected;s.detailId=r.species.id;})}/>` )}</div>` : html`<div className="empty-state">Ingen fangster for ${memberName(selected)} ennå.</div>`}
+    </section>
+  </div>`;
+}
+
 
 export function GuestView(){
   useStore();

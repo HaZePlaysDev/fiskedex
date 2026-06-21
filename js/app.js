@@ -6,8 +6,9 @@ import * as db from './db.js';
 import { fetchWeather } from './weather.js';
 import { DexGrid } from './components/dex-grid.js';
 import { DetailModal } from './components/detail-modal.js';
-import { DashboardView, StatsView, MapView, LogView, RecordsView, GuestView } from './components/views.js';
+import { DashboardView, StatsView, MapView, LogView, RecordsView, GuestView, ProfileView } from './components/views.js';
 import { LoginGate, AddSpeciesModal, AddMemberModal } from './components/modals.js';
+import { RegisterCatchModal } from './components/register-catch-modal.js';
 
 const html = htm.bind(React.createElement);
 const { useEffect } = React;
@@ -40,6 +41,7 @@ function MainNav(){
     ['fangster','📜 Fangster'],
     ['map','🗺️ Kart'],
     ['stats','📊 Toppliste'],
+    ['profiles','👤 Profiler'],
     ['records','🏆 Rekorder'],
     ['guests','👀 Gjester'],
   ];
@@ -73,6 +75,12 @@ function DexTools(){
               onClick=${()=>update(s=>{ s.filterPhoto = s.filterPhoto===true ? null : true; })}>📷 Med bilde</button>
       <button className=${'chip'+(store.filterMystery?' active':'')}
               onClick=${()=>update(s=>{ s.filterMystery = !s.filterMystery; })}>❔ Mystery</button>
+      <button className=${'chip'+(store.filterGps?' active':'')}
+              onClick=${()=>update(s=>{ s.filterGps = !s.filterGps; })}>📍 Har GPS</button>
+      <button className=${'chip'+(store.filterRecord?' active':'')}
+              onClick=${()=>update(s=>{ s.filterRecord = !s.filterRecord; })}>🏆 Har rekord</button>
+      ${store.member && html`<button className=${'chip'+(store.filterMine?' active':'')}
+              onClick=${()=>update(s=>{ s.filterMine = !s.filterMine; })}>👤 Bare ${store.member}</button>`}
       ${editable && html`<button className=${'chip order-chip big-order-chip'+(store.orderOpen?' active':'')}
               onClick=${()=>update(s=>{
                 s.orderOpen = !s.orderOpen;
@@ -84,6 +92,11 @@ function DexTools(){
     </div>
     <div className="search">🔎<input type="search" placeholder="Søk etter art, sted eller kommentar …" aria-label="Søk"
          value=${store.q} onChange=${e=>update(s=>{ s.q = e.target.value.trim().toLowerCase(); })}/></div>
+    <select className="dex-sort" value=${store.sortBy} aria-label="Sorter dex"
+      onChange=${e=>update(s=>{ s.sortBy = e.target.value; })}>
+      <option value="dex">Dex-rekkefølge</option><option value="name">A–Å</option><option value="newest">Nyest fanget</option><option value="reactions">Flest reaksjoner</option>
+    </select>
+    ${(store.q || store.filterCaught!==null || store.filterPhoto || store.filterMystery || store.filterGps || store.filterRecord || store.filterMine || store.sortBy!=='dex') && html`<button className="chip clear-filters" onClick=${()=>update(s=>{s.q='';s.filterCaught=null;s.filterPhoto=null;s.filterMystery=false;s.filterGps=false;s.filterRecord=false;s.filterMine=false;s.sortBy='dex';})}>Nullstill</button>`}
     ${editable && html`<button className="btn-add" onClick=${()=>update(s=>{ s.addOpen = true; })}>+ Ny art</button>`}
   </div>`;
 }
@@ -98,6 +111,7 @@ function MembersBar(){
     ${store.members.map(m=>html`
       <button key=${m} className=${'mchip'+(store.member===m?' active':'')}
               onClick=${()=>update(s=>{ s.member = m; })}>${m}</button>`)}
+    ${store.member && html`<button className="mchip profile-chip" onClick=${()=>update(s=>{ s.profileMember=s.member; s.view='profiles'; })}>👤 Profil</button>`}
     ${editable && html`<button className="mchip add" onClick=${()=>update(s=>{ s.memberOpen = true; })}>+ Fisker</button>`}
   </div>`;
 }
@@ -116,7 +130,7 @@ function App(){
     const onVis = ()=>{ if(!document.hidden && (store.authed || store.guest) && !anyModalOpen()) reload(true); };
     const onKey = e=>{
       if(e.key==='Escape') update(s=>{
-        s.lightboxUrl = null; s.detailId = null; s.addOpen = false; s.memberOpen = false;
+        s.lightboxUrl = null; s.detailId = null; s.addOpen = false; s.memberOpen = false; s.catchOpen = false;
       });
     };
     document.addEventListener('visibilitychange', onVis);
@@ -189,6 +203,7 @@ function App(){
 
     <div className="toolbar main-toolbar">
       <${MainNav}/>
+      ${editable && html`<button className="btn-add catch-cta" onClick=${()=>update(s=>{ s.catchOpen=true; })}>+ Registrer fangst</button>`}
       <button className="tab" title="Hent kompisenes siste fangster" onClick=${()=>reload(false)}>↻ Oppdater</button>
       ${editable && html`<button className="tab order-toolbar-btn" title="Dra fiskene i ønsket rekkefølge" onClick=${()=>update(s=>{
         s.view='dex';
@@ -208,6 +223,7 @@ function App(){
         ? html`<div className="empty-state">Henter dexen …</div>`
         : store.view==='dashboard' ? html`<${DashboardView}/>`
         : store.view==='stats'     ? html`<${StatsView}/>`
+        : store.view==='profiles'  ? html`<${ProfileView}/>`
         : store.view==='records'   ? html`<${RecordsView}/>`
         : store.view==='map'       ? html`<${MapView}/>`
         : store.view==='fangster'  ? html`<${LogView}/>`
@@ -217,10 +233,12 @@ function App(){
 
     <div className="mobile-bottom-nav">
       <button className=${store.view==='dashboard'?'active':''} onClick=${()=>update(s=>{s.view='dashboard';})}>🏠<span>Start</span></button>
+      ${editable && html`<button className="mobile-catch-btn" onClick=${()=>update(s=>{s.catchOpen=true;})}>＋<span>Fangst</span></button>`}
       <button className=${store.view==='dex'?'active':''} onClick=${()=>update(s=>{s.view='dex';})}>🐟<span>Dex</span></button>
       <button className=${store.view==='fangster'?'active':''} onClick=${()=>update(s=>{s.view='fangster';})}>📜<span>Fangster</span></button>
       <button className=${store.view==='map'?'active':''} onClick=${()=>update(s=>{s.view='map';})}>🗺️<span>Kart</span></button>
       <button className=${store.view==='stats'?'active':''} onClick=${()=>update(s=>{s.view='stats';})}>📊<span>Toppen</span></button>
+      <button className=${store.view==='profiles'?'active':''} onClick=${()=>update(s=>{s.profileMember=s.profileMember||s.member||s.members[0]||null;s.view='profiles';})}>👤<span>Profil</span></button>
       ${editable && html`<button className=${store.view==='dex' && store.orderOpen?'active':''} onClick=${()=>update(s=>{
         s.view='dex';
         s.orderOpen=true;
@@ -233,6 +251,7 @@ function App(){
     ${store.detailId && html`<${DetailModal}/>`}
     <${AddSpeciesModal}/>
     <${AddMemberModal}/>
+    <${RegisterCatchModal}/>
 
     ${store.lightboxUrl && html`
       <div className="overlay open" style=${{zIndex:70, alignItems:'center'}}

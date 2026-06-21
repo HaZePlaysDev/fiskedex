@@ -1,8 +1,8 @@
-const CACHE='fiskedex-react-v19';
+const CACHE='fiskedex-react-v20';
 const ASSETS=['/','/index.html','/manifest.webmanifest',
  '/css/theme.css','/css/components.css',
  '/js/app.js','/js/config.js','/js/data.js','/js/db.js','/js/silhouettes.js','/js/species-info.js','/js/store.js','/js/utils.js','/js/weather.js',
- '/js/components/dex-grid.js','/js/components/detail-modal.js','/js/components/views.js','/js/components/modals.js',
+ '/js/components/dex-grid.js','/js/components/detail-modal.js','/js/components/views.js','/js/components/modals.js','/js/components/register-catch-modal.js',
  '/img/forside.jpg','/img/kat-f.jpg','/img/kat-k.jpg','/img/kat-b.jpg','/img/kat-h.jpg','/img/kat-m.jpg',
  '/img/icon-192.png','/img/icon-512.png'];
 self.addEventListener('install',e=>{
