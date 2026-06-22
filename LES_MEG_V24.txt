@@ -1,0 +1,11 @@
+FiskeDex v24 – ryddigere mobiloppsett
+
+Dette er fikset:
+- Velg fisker i en egen meny fra knappen oppe i høyre hjørne.
+- Oversikten sier "gjengen" når Alle fiskere er valgt.
+- Fanget-merket på kortene er reparert.
+- Færre filtre vises. Trykk Filter ved søket for flere valg.
+- Artsrekorder forklares tydeligere inne på Rekorder-siden.
+- Mobilvisningen bruker full bredde og har fast to-kolonne Dex.
+
+Ingen ny SQL trengs. Last opp alle filene i denne pakken.

@@ -110,13 +110,13 @@ export function DashboardView(){
   const photoCount = rows.filter(r=>r.catch.hasPhoto).length;
   const progress = catProgressRows();
   const next = [...progress].sort((a,b)=>a.pct-b.pct || a.caught-b.caught)[0] || null;
-  const welcomeName = store.member || store.profileMember || store.members[0] || 'fisker';
+  const welcomeName = store.member ? memberName(store.member) : 'gjengen';
 
   return html`<div className="dashboard dashboard-v20 dashboard-v23">
     <section className="dash-hero-card wide dash-command-card">
       <div className="dash-welcome">
         <div className="eyebrow">Dagens oversikt</div>
-        <h2>${dashboardGreeting()}, ${memberName(welcomeName)} <span aria-hidden="true">👋</span></h2>
+        <h2>${dashboardGreeting()}, ${welcomeName} <span aria-hidden="true">👋</span></h2>
         <p><b>${caught}/${tot} arter</b> er kartlagt. ${tot-caught ? `${tot-caught} mangler fortsatt — neste kategori: ${next ? CATS[next.cat].name : 'utforsk dexen'}.` : 'Alle arter er kartlagt. Legendarisk innsats.'}</p>
         <div className="dash-hero-actions">
           ${canEdit() && html`<button className="btn primary dashboard-catch" onClick=${()=>update(s=>{s.catchOpen=true;})}>🎣 Registrer fangst</button>`}
@@ -158,7 +158,7 @@ export function DashboardView(){
         <button onClick=${()=>update(s=>{s.view='profiles';s.profileMember=s.member||s.members[0]||null;})}>👤 Fiskerprofiler</button>
         <button onClick=${()=>update(s=>{s.view='map';})}>🗺️ Fangstkart</button>
         <button onClick=${()=>update(s=>{s.view='records';})}>🏆 Rekorder</button>
-        <button onClick=${()=>update(s=>{s.view='dex';s.filterRecord=true;})}>🏆 Artsrekorder</button>
+        <button onClick=${()=>update(s=>{s.view='records';})}>🏆 Rekorder per art</button>
       </div>
     </section>
 
@@ -346,7 +346,7 @@ export function RecordsView(){
   const rowText = r => `${memberName(r.member)}${r.catch.sted?' · '+r.catch.sted:''}`;
 
   return html`<div className="records-page">
-    <div className="section-title-row"><div><div className="eyebrow">Hall of fame</div><h2>Rekorder</h2></div><button className="btn ghost" onClick=${()=>update(s=>{s.view='dex';s.filterRecord=true;})}>🏆 Vis rekordarter i Dex</button></div>
+    <div className="section-title-row"><div><div className="eyebrow">Hall of fame</div><h2>Rekorder</h2><p className="records-help">Her ser dere rekorder for hele gjengen. Trykk på en art for å se alle fangstene av den.</p></div></div>
     <section className="records-hero">
       <div><div className="eyebrow">Gjengens beste øyeblikk</div><h3>${rows.length} registrerte fangster</h3><p>Her samles både de største fiskene, de ivrigste fiskerne og artsrekordene.</p></div>
       <div className="records-hero-badges"><span>⚖️ ${heaviest ? fmtKg(heaviest.value) : '–'}</span><span>📏 ${longest ? fmtCm(longest.value) : '–'}</span><span>✨ ${mythicalLeaders[0]?.count || 0}</span></div>
@@ -375,9 +375,9 @@ export function RecordsView(){
     </section>
 
     <section className="art-records-section">
-      <div className="section-title-row"><div><div className="eyebrow">Per art</div><h2>Artsrekorder</h2></div><div className="record-cat-filters"><button className=${recordCat==='ALL'?'active':''} onClick=${()=>setRecordCat('ALL')}>Alle</button>${catOrder().map(c=>html`<button key=${c} className=${recordCat===c?'active':''} onClick=${()=>setRecordCat(c)}>${CATS[c].name}</button>`)}</div></div>
+      <div className="section-title-row"><div><div className="eyebrow">Per art</div><h2>Beste fangst per art</h2><p className="records-help">Viser den tyngste og lengste registrerte fangsten for hver art. Mangler det mål eller vekt, står det tomt.</p></div><div className="record-cat-filters"><button className=${recordCat==='ALL'?'active':''} onClick=${()=>setRecordCat('ALL')}>Alle</button>${catOrder().map(c=>html`<button key=${c} className=${recordCat===c?'active':''} onClick=${()=>setRecordCat(c)}>${CATS[c].name}</button>`)}</div></div>
       <div className="art-record-list">
-        ${artRecords.length ? artRecords.map(r=>html`<button key=${r.species.id} className="art-record-row" onClick=${()=>update(s=>{s.detailId=r.species.id;})}>
+        ${artRecords.length ? artRecords.map(r=>html`<button key=${r.species.id} className="art-record-row" onClick=${()=>update(s=>{s.member=null;s.detailId=r.species.id;})}>
           <div><b>${r.species.name}</b><small>${r.species.id} · ${r.count} registrert</small></div>
           <span>${r.heavy ? `⚖️ ${fmtKg(r.heavy.value)} · ${memberName(r.heavy.member)}` : '–'}</span>
           <span>${r.long ? `📏 ${fmtCm(r.long.value)} · ${memberName(r.long.member)}` : '–'}</span>

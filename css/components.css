@@ -571,3 +571,65 @@ button:disabled{opacity:.6;cursor:wait}
   .card .img{height:146px!important}
 }
 @media (max-width:640px){.app-toolbar-v23{display:none!important}}
+
+
+/* ---------- v24: renere Dex og egen fisker-meny ---------- */
+html,body,#app{width:100%;max-width:100%;min-width:0;overflow-x:hidden}
+header{width:100%!important;max-width:none!important}
+.head-inner{width:100%;min-width:0}
+
+/* Fanget-merket skal være et lite stempel, ikke et langt bånd. */
+.card .stamp{
+  top:12px!important;right:12px!important;bottom:auto!important;left:auto!important;
+  width:auto!important;height:auto!important;min-height:0!important;line-height:1!important;
+  padding:6px 7px!important;border:0!important;border-radius:7px!important;
+  font-family:'IBM Plex Mono',monospace!important;font-size:9px!important;font-weight:900!important;
+  letter-spacing:.06em!important;transform:none!important;box-shadow:0 2px 6px rgba(0,0,0,.16)!important;
+}
+
+.dex-tools-clean{max-width:1200px;margin:12px auto 0;padding:0 20px;display:flex;flex-direction:column;align-items:stretch;gap:10px}
+.dex-tools-clean .cat-tabs{display:flex;flex-wrap:nowrap;overflow-x:auto;gap:7px;padding:1px 1px 5px;scrollbar-width:none}
+.dex-tools-clean .cat-tabs::-webkit-scrollbar{display:none}
+.dex-tools-clean .cat-tabs .tab{flex:0 0 auto;background:#f8fbfa;border-color:#d2e0e1}
+.dex-search-row{display:flex;align-items:center;gap:8px}
+.dex-search-row .search{margin:0;max-width:none;flex:1;min-width:0}
+.filter-toggle{white-space:nowrap;background:#f8fbfa;border-style:solid;border-color:#c8d9db;color:var(--hav)}
+.filter-toggle.active{background:var(--hav);border-color:var(--hav);color:#fff}
+.clean-new-species{white-space:nowrap}
+.dex-filter-panel{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:12px;border:1.5px solid #d7e3e5;border-radius:14px;background:#f7fbfb;box-shadow:0 5px 14px rgba(18,43,54,.05)}
+.filter-group{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.filter-group>span{font-family:'IBM Plex Mono',monospace;color:var(--blek);font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;margin-right:2px}
+.filter-sort-group{justify-content:flex-end}
+.filter-sort-group label{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:800;color:var(--blek)}
+.dex-filter-panel .dex-sort{border:1.5px solid var(--linje);background:#fff;border-radius:999px;padding:7px 10px;font-size:12px;font-weight:800}
+
+/* Enkel knapp i hjørnet som åpner valg av fisker. */
+.member-menu-root{position:fixed;top:max(12px, env(safe-area-inset-top));right:12px;z-index:85}
+.member-menu-trigger{display:flex;align-items:center;gap:6px;max-width:170px;border:1px solid rgba(255,255,255,.55);border-radius:999px;background:rgba(251,250,245,.96);color:var(--hav);padding:8px 11px;box-shadow:0 5px 16px rgba(0,0,0,.17);font-size:12px;font-weight:900}
+.member-menu-trigger>span:nth-child(2){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.member-menu-icon{font-size:15px}.member-menu-caret{font-size:14px;color:var(--blek);line-height:1}
+.member-drawer-backdrop{position:fixed;inset:0;background:rgba(6,22,29,.45);z-index:120;display:flex;justify-content:flex-end;backdrop-filter:blur(2px)}
+.member-drawer{width:min(390px,92vw);height:100%;overflow-y:auto;background:var(--papir);padding:18px 14px calc(22px + env(safe-area-inset-bottom));box-shadow:-18px 0 45px rgba(0,0,0,.24)}
+.member-drawer-head{display:flex;justify-content:space-between;gap:12px;padding:7px 7px 16px}.member-drawer-head h2{font-family:'Staatliches',sans-serif;font-size:38px;letter-spacing:.02em;line-height:.95;color:var(--hav);font-weight:400;margin:5px 0}.member-drawer-head p{font-size:12.5px;color:var(--blek);max-width:260px;line-height:1.35}.member-drawer-head>button{border:0;background:#e8efef;color:var(--hav);border-radius:50%;width:34px;height:34px;font-size:25px;line-height:1;flex:none}
+.member-drawer-item{width:100%;display:flex;align-items:center;gap:10px;border:1.5px solid #d4e0e1;background:#fff;padding:10px;border-radius:13px;color:var(--hav);text-align:left}.member-drawer-item:hover,.member-drawer-item.active{border-color:var(--tang);background:#f4f8f1}.member-drawer-item b{display:block;font-size:14px}.member-drawer-item small{display:block;color:var(--blek);font-size:11.5px;margin-top:2px}.member-drawer-item i{font-style:normal;color:var(--tang);font-size:18px;margin-left:auto;font-weight:900}.drawer-avatar{width:38px;height:38px;border-radius:50%;background:#dce8e9;color:var(--hav);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:15px;flex:none}.drawer-avatar.photo{object-fit:cover;display:block}
+.member-drawer-list{display:flex;flex-direction:column;gap:7px;margin-top:10px}.member-drawer-person{display:grid;grid-template-columns:1fr auto;gap:6px;align-items:stretch}.member-drawer-person.active .member-drawer-item{border-color:var(--tang);background:#f4f8f1}.drawer-profile-link{border:1.5px solid #d4e0e1;background:#f8fbfa;border-radius:13px;padding:0 10px;color:var(--blek);font-size:11px;font-weight:900}.drawer-profile-link:hover{color:var(--boye);border-color:var(--boye)}.member-add-drawer{width:100%;margin-top:14px;border:1.5px dashed var(--blek);background:#eef5f5;border-radius:12px;padding:11px;color:var(--hav);font-weight:900}
+
+.records-help{margin-top:6px;color:var(--blek);font-size:12.5px;line-height:1.4;max-width:620px}
+
+/* Mindre støy på artskortene. */
+.card .name{font-size:27px!important}.card .meta{font-size:11.5px!important;min-height:28px!important}.card-category{font-size:9px!important;padding:4px 6px!important}.card .img{height:172px!important}
+
+@media (max-width:900px){
+  body{padding-bottom:88px}
+  header{padding:48px 18px 32px!important}
+  header h1.hero-title{font-size:clamp(52px,16vw,78px)!important;line-height:.8!important;max-width:100%!important}
+  .tagline{font-size:15px;max-width:100%}.progress-wrap{gap:10px}.progress-num{font-size:30px}
+  .app-toolbar-v24{display:none!important}
+  .dex-tools-clean{padding:0 12px;margin-top:10px}.dex-search-row{gap:7px}.clean-new-species{display:none}
+  .dex-filter-panel{flex-direction:column;align-items:stretch;gap:10px}.filter-sort-group{justify-content:flex-start}.filter-sort-group label{width:100%;justify-content:space-between}.dex-filter-panel .dex-sort{flex:1;max-width:210px}
+  main{padding:12px 12px 106px!important;max-width:100%!important}
+  .grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}.card{min-width:0!important;border-radius:14px!important}.card .img{height:124px!important}.card .body{padding:10px!important}.card .name{font-size:23px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.card .meta{font-size:10.5px!important;min-height:30px!important;overflow:hidden}.card-kicker{gap:4px;margin-bottom:5px}.card-category{max-width:78px;overflow:hidden;text-overflow:ellipsis}.card .stamp{top:9px!important;right:9px!important;font-size:8px!important;padding:5px!important}
+  .cat-banner{margin:15px 0 10px!important;border-radius:14px!important}.cat-banner h2{font-size:33px!important}.cat-banner .inner{padding:13px!important}.cat-banner .cnt{font-size:10px!important}
+  .member-menu-root{top:max(10px, env(safe-area-inset-top));right:10px}.member-menu-trigger{max-width:112px;padding:7px 9px;font-size:11px}.member-menu-icon{font-size:14px}
+  .mobile-bottom-nav{display:grid!important}
+}
+@media (max-width:380px){.member-menu-trigger>span:nth-child(2){display:none}.member-menu-trigger{min-width:38px;justify-content:center}.dex-search-row .filter-toggle{padding:7px 9px;font-size:11px}.card .name{font-size:21px!important}}

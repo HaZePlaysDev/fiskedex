@@ -39,71 +39,84 @@ function MainNav(){
   </nav>`;
 }
 
+function clearDexFilters(){
+  update(s=>{
+    s.q=''; s.filterCaught=null; s.filterPhoto=null; s.filterMystery=false;
+    s.filterGps=false; s.filterRecord=false; s.filterMine=false; s.sortBy='dex';
+  });
+}
+
+function openOrderEditor(){
+  update(s=>{
+    s.view='dex'; s.orderOpen=true; s.dexFiltersOpen=false;
+    const cats = catOrder();
+    const chosen = (s.filterCat && s.filterCat !== 'ALL') ? s.filterCat : (s.orderCat || cats[0]);
+    if(chosen){ s.orderCat=chosen; s.filterCat=chosen; }
+  });
+}
+
 function DexTools(){
   useStore();
   const editable = canEdit();
   const counts = { ALL: store.species.length };
   for(const c in CATS) counts[c] = store.species.filter(s=>s.cat===c).length;
-  const tabs = [{key:'ALL', name:'Alle', cnt:counts.ALL},
-    ...catOrder().map(c=>({key:c, name:CATS[c].name, cnt:counts[c]||0}))];
-  const pickTab = key => update(s=>{ s.filterCat = key; s.view = 'dex'; if(s.orderOpen && key !== 'ALL') s.orderCat = key; });
+  const tabs = [{key:'ALL', name:'Alle', cnt:counts.ALL}, ...catOrder().map(c=>({key:c, name:CATS[c].name, cnt:counts[c]||0}))];
+  const activeFilters = [store.filterCaught!==null, store.filterPhoto===true, store.filterMystery, store.filterGps, store.filterMine, store.sortBy!=='dex'].filter(Boolean).length;
+  const pickTab = key => update(s=>{ s.filterCat=key; s.view='dex'; if(s.orderOpen && key!=='ALL') s.orderCat=key; });
 
-  return html`<div className="dex-tools">
-    <div className="tabs cat-tabs">
-      ${tabs.map(t=>html`
-        <button key=${t.key} className=${'tab'+(store.filterCat===t.key ? ' active':'')}
-                onClick=${()=>pickTab(t.key)}>${t.name}<span className="cnt">${t.cnt}</span></button>`)}
+  return html`<div className="dex-tools dex-tools-clean">
+    <div className="tabs cat-tabs" aria-label="Velg kategori">
+      ${tabs.map(t=>html`<button key=${t.key} className=${'tab'+(store.filterCat===t.key?' active':'')} onClick=${()=>pickTab(t.key)}>${t.name}<span className="cnt">${t.cnt}</span></button>`)}
     </div>
-    <div className="filter-caught">
-      <button className=${'chip'+(store.filterCaught===true?' active':'')}
-              onClick=${()=>update(s=>{ s.filterCaught = s.filterCaught===true ? null : true; })}>✓ Fanget</button>
-      <button className=${'chip'+(store.filterCaught===false?' active':'')}
-              onClick=${()=>update(s=>{ s.filterCaught = s.filterCaught===false ? null : false; })}>Mangler</button>
-      <button className=${'chip'+(store.filterPhoto===true?' active':'')}
-              onClick=${()=>update(s=>{ s.filterPhoto = s.filterPhoto===true ? null : true; })}>📷 Med bilde</button>
-      <button className=${'chip'+(store.filterMystery?' active':'')}
-              onClick=${()=>update(s=>{ s.filterMystery = !s.filterMystery; })}>❔ Mystery</button>
-      <button className=${'chip'+(store.filterGps?' active':'')}
-              onClick=${()=>update(s=>{ s.filterGps = !s.filterGps; })}>📍 Har GPS</button>
-      <button className=${'chip'+(store.filterRecord?' active':'')}
-              onClick=${()=>update(s=>{ s.filterRecord = !s.filterRecord; })}>🏆 Har rekord</button>
-      ${store.member && html`<button className=${'chip'+(store.filterMine?' active':'')}
-              onClick=${()=>update(s=>{ s.filterMine = !s.filterMine; })}>👤 Bare ${store.member}</button>`}
-      ${editable && html`<button className=${'chip order-chip big-order-chip'+(store.orderOpen?' active':'')}
-              onClick=${()=>update(s=>{
-                s.orderOpen = !s.orderOpen;
-                const cats = catOrder();
-                const chosen = (s.filterCat && s.filterCat !== 'ALL') ? s.filterCat : (s.orderCat || cats[0]);
-                if(chosen) s.orderCat = chosen;
-                if(chosen && s.orderOpen) s.filterCat = chosen;
-              })}>↕ Endre rekkefølge</button>`}
+    <div className="dex-search-row">
+      <div className="search">🔎<input type="search" placeholder="Søk etter art, sted eller kommentar …" aria-label="Søk i FiskeDex" value=${store.q} onChange=${e=>update(s=>{s.q=e.target.value.trim().toLowerCase();})}/></div>
+      <button className=${'chip filter-toggle'+(store.dexFiltersOpen?' active':'')} aria-expanded=${store.dexFiltersOpen?'true':'false'} onClick=${()=>update(s=>{s.dexFiltersOpen=!s.dexFiltersOpen;})}>☷ Filter${activeFilters ? ' ('+activeFilters+')' : ''}</button>
+      ${editable && html`<button className="btn-add clean-new-species" onClick=${()=>update(s=>{s.addOpen=true;})}>+ Ny art</button>`}
     </div>
-    <div className="search">🔎<input type="search" placeholder="Søk etter art, sted eller kommentar …" aria-label="Søk"
-         value=${store.q} onChange=${e=>update(s=>{ s.q = e.target.value.trim().toLowerCase(); })}/></div>
-    <select className="dex-sort" value=${store.sortBy} aria-label="Sorter dex"
-      onChange=${e=>update(s=>{ s.sortBy = e.target.value; })}>
-      <option value="dex">Dex-rekkefølge</option><option value="name">A–Å</option><option value="newest">Nyest fanget</option><option value="reactions">Flest reaksjoner</option>
-    </select>
-    ${(store.q || store.filterCaught!==null || store.filterPhoto || store.filterMystery || store.filterGps || store.filterRecord || store.filterMine || store.sortBy!=='dex') && html`<button className="chip clear-filters" onClick=${()=>update(s=>{s.q='';s.filterCaught=null;s.filterPhoto=null;s.filterMystery=false;s.filterGps=false;s.filterRecord=false;s.filterMine=false;s.sortBy='dex';})}>Nullstill</button>`}
-    ${editable && html`<button className="btn-add" onClick=${()=>update(s=>{ s.addOpen = true; })}>+ Ny art</button>`}
+    ${store.dexFiltersOpen && html`<div className="dex-filter-panel">
+      <div className="filter-group">
+        <span>Vis</span>
+        <button className=${'chip'+(store.filterCaught===true?' active':'')} onClick=${()=>update(s=>{s.filterCaught=s.filterCaught===true?null:true;})}>✓ Fanget</button>
+        <button className=${'chip'+(store.filterCaught===false?' active':'')} onClick=${()=>update(s=>{s.filterCaught=s.filterCaught===false?null:false;})}>Mangler</button>
+        <button className=${'chip'+(store.filterPhoto?' active':'')} onClick=${()=>update(s=>{s.filterPhoto=!s.filterPhoto;})}>📷 Med bilde</button>
+        <button className=${'chip'+(store.filterMystery?' active':'')} onClick=${()=>update(s=>{s.filterMystery=!s.filterMystery;})}>❔ Mystery</button>
+        <button className=${'chip'+(store.filterGps?' active':'')} onClick=${()=>update(s=>{s.filterGps=!s.filterGps;})}>📍 GPS</button>
+        ${store.member && html`<button className=${'chip'+(store.filterMine?' active':'')} onClick=${()=>update(s=>{s.filterMine=!s.filterMine;})}>Bare ${store.member}</button>`}
+      </div>
+      <div className="filter-group filter-sort-group">
+        <label>Sorter <select className="dex-sort" value=${store.sortBy} aria-label="Sorter dex" onChange=${e=>update(s=>{s.sortBy=e.target.value;})}><option value="dex">Dex-rekkefølge</option><option value="name">A–Å</option><option value="newest">Nyest fanget</option><option value="reactions">Flest reaksjoner</option></select></label>
+        ${activeFilters || store.q ? html`<button className="chip clear-filters" onClick=${clearDexFilters}>Nullstill</button>` : null}
+        ${editable && html`<button className="chip order-chip" onClick=${openOrderEditor}>↕ Endre rekkefølge</button>`}
+      </div>
+    </div>`}
   </div>`;
 }
 
-function MembersBar(){
+function FishersMenu(){
   useStore();
   const editable = canEdit();
-  return html`<div className="members-bar">
-    <span className="mlabel">Fisker:</span>
-    <button className=${'mchip'+(store.member===null?' active':'')}
-            onClick=${()=>update(s=>{ s.member = null; })}>👥 Alle</button>
-    ${store.members.map(m=>html`
-      <button key=${m} className=${'mchip member-chip'+(store.member===m?' active':'')}
-              onClick=${()=>update(s=>{ s.member = m; })}>
-        ${store.profilePhotos && store.profilePhotos[m] ? html`<img className="member-chip-avatar" src=${store.profilePhotos[m]} alt=""/>` : null}
-        <span>${m}</span>
-      </button>`)}
-    ${store.member && html`<button className="mchip profile-chip" onClick=${()=>update(s=>{ s.profileMember=s.member; s.view='profiles'; })}>👤 Profil</button>`}
-    ${editable && html`<button className="mchip add" onClick=${()=>update(s=>{ s.memberOpen = true; })}>+ Fisker</button>`}
+  const choose = member => update(s=>{ s.member=member; s.memberMenuOpen=false; s.filterMine=false; });
+  const openProfile = member => update(s=>{ s.member=member; s.profileMember=member; s.memberMenuOpen=false; s.view='profiles'; });
+  return html`<div className="member-menu-root">
+    <button className="member-menu-trigger" aria-label="Velg fisker" aria-expanded=${store.memberMenuOpen?'true':'false'} onClick=${()=>update(s=>{s.memberMenuOpen=!s.memberMenuOpen;})}>
+      <span className="member-menu-icon">👤</span><span>${store.member || 'Alle'}</span><span className="member-menu-caret">⌄</span>
+    </button>
+    ${store.memberMenuOpen && html`<div className="member-drawer-backdrop" onClick=${()=>update(s=>{s.memberMenuOpen=false;})}>
+      <aside className="member-drawer" aria-label="Velg fisker" onClick=${e=>e.stopPropagation()}>
+        <div className="member-drawer-head"><div><span className="eyebrow">FiskeDex</span><h2>Velg fisker</h2><p>Dette velger hvem dere ser fangster for.</p></div><button aria-label="Lukk meny" onClick=${()=>update(s=>{s.memberMenuOpen=false;})}>×</button></div>
+        <button className=${'member-drawer-item all'+(store.member===null?' active':'')} onClick=${()=>choose(null)}><span className="drawer-avatar">👥</span><span><b>Alle fiskere</b><small>Felles oversikt for hele gjengen</small></span><i>${store.member===null?'✓':''}</i></button>
+        <div className="member-drawer-list">
+          ${store.members.map(m=>html`<div key=${m} className=${'member-drawer-person'+(store.member===m?' active':'')}>
+            <button className="member-drawer-item" onClick=${()=>choose(m)}>
+              ${store.profilePhotos && store.profilePhotos[m] ? html`<img className="drawer-avatar photo" src=${store.profilePhotos[m]} alt=""/>` : html`<span className="drawer-avatar">${m.slice(0,1).toUpperCase()}</span>`}
+              <span><b>${m}</b><small>${store.member===m?'Valgt fisker':'Velg som fisker'}</small></span><i>${store.member===m?'✓':''}</i>
+            </button>
+            <button className="drawer-profile-link" aria-label=${'Åpne profil for '+m} onClick=${()=>openProfile(m)}>Profil</button>
+          </div>`)}
+        </div>
+        ${editable && html`<button className="member-add-drawer" onClick=${()=>update(s=>{s.memberMenuOpen=false;s.memberOpen=true;})}>+ Legg til fisker</button>`}
+      </aside>
+    </div>`}
   </div>`;
 }
 
@@ -121,7 +134,7 @@ function App(){
     const onVis = ()=>{ if(!document.hidden && (store.authed || store.guest) && !anyModalOpen()) reload(true); };
     const onKey = e=>{
       if(e.key==='Escape') update(s=>{
-        s.lightboxUrl = null; s.detailId = null; s.addOpen = false; s.memberOpen = false; s.catchOpen = false;
+        s.lightboxUrl = null; s.detailId = null; s.addOpen = false; s.memberOpen = false; s.catchOpen = false; s.memberMenuOpen = false; s.dexFiltersOpen = false;
       });
     };
     document.addEventListener('visibilitychange', onVis);
@@ -190,9 +203,11 @@ function App(){
       </div>
     </header>
 
+    <${FishersMenu}/>
+
     ${store.weather && html`<div className="weather-bar" dangerouslySetInnerHTML=${{__html: store.weather}}/>`}
 
-    <div className="toolbar main-toolbar app-toolbar-v23">
+    <div className="toolbar main-toolbar app-toolbar-v24">
       <${MainNav}/>
       <div className="app-toolbar-actions">
         ${editable && html`<button className="btn-add catch-cta" onClick=${()=>update(s=>{ s.catchOpen=true; })}>🎣 Registrer fangst</button>`}
@@ -208,7 +223,6 @@ function App(){
       </div>
     </div>
 
-    <${MembersBar}/>
     ${store.view==='dex' && html`<${DexTools}/>`}
 
     <main>

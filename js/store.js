@@ -21,6 +21,8 @@ export const store = {
   filterGps: false,
   filterRecord: false,
   filterMine: false,
+  dexFiltersOpen: false,
+  memberMenuOpen: false,
   sortBy: 'dex',
   orderOpen: false,       // viser sortering av fisk i Dex
   orderCat: 'F',
