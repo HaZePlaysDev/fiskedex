@@ -4,7 +4,7 @@ import { store, update, useStore, toast, catchers, memberName, catOrder, canEdit
 import { CATS } from '../data.js';
 import { FELLES, KARMOY } from '../config.js';
 import * as db from '../db.js';
-import { esc, parseWeightKg, parseLengthCm, fmtKg, fmtCm, makeThumbFromDataUrl } from '../utils.js';
+import { esc, parseWeightKg, parseLengthCm, fmtKg, fmtCm, makeThumbFromDataUrl, compressImage } from '../utils.js';
 
 const html = htm.bind(React.createElement);
 const { useState, useEffect, useRef } = React;
@@ -527,6 +527,10 @@ export function ProfileView(){
     if(wanted && allMembers.includes(wanted)) setSelected(wanted);
   },[store.profileMember,store.member,memberKey]);
 
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const profilePhoto = (store.profilePhotos && store.profilePhotos[selected]) || '';
+  const photoInputId = 'profilePhotoInput';
+
   if(!allMembers.length) return html`<div className="empty-state">Legg til minst én fisker før dere åpner profiler.</div>`;
   const rows=allCatchRows(selected);
   const leaderboard=leaderboardRows();
@@ -551,11 +555,59 @@ export function ProfileView(){
   if(mythical) badges.push(['✨','Mythical hunter',`${mythical} encounter${mythical===1?'':'s'}`]);
   const changeMember=m=>{setSelected(m);update(s=>{s.profileMember=m;s.member=m;});};
 
+  async function onProfilePhoto(ev){
+    const file = ev.target.files && ev.target.files[0];
+    ev.target.value = '';
+    if(!file || !selected || selected===FELLES) return;
+    if(!String(file.type||'').startsWith('image/')){ toast('Velg en bildefil'); return; }
+    setUploadingPhoto(true);
+    try{
+      const compressed = await compressImage(file);
+      // Bruk miniutgaven. Den ser skarp ut i en avatar, men holder databasen liten.
+      const dataUrl = typeof compressed === 'string' ? compressed : (compressed.thumb || compressed.full);
+      const result = await db.saveMemberProfilePhoto(selected, dataUrl);
+      if(!result.ok){
+        const reason = String((result.error && result.error.message) || '');
+        toast(/profile_photo/i.test(reason)
+          ? 'Kjør v22-SQL-filen i Supabase før du legger til profilbilder'
+          : 'Kunne ikke lagre profilbildet');
+        return;
+      }
+      update(s=>{ s.profilePhotos = {...(s.profilePhotos||{}), [selected]:dataUrl}; });
+      toast('Profilbildet er lagret');
+    }catch(err){
+      console.error(err);
+      toast('Kunne ikke lese bildet. Prøv et annet bilde.');
+    }finally{ setUploadingPhoto(false); }
+  }
+
+  async function removeProfilePhoto(){
+    if(!selected || selected===FELLES) return;
+    const result = await db.deleteMemberProfilePhoto(selected);
+    if(!result.ok){ toast('Kunne ikke slette profilbildet'); return; }
+    update(s=>{
+      const next={...(s.profilePhotos||{})};
+      delete next[selected];
+      s.profilePhotos=next;
+    });
+    toast('Profilbildet er fjernet');
+  }
+
   return html`<div className="profile-page">
     <div className="section-title-row"><div><div className="eyebrow">Fiskerprofil</div><h2>Din FiskeDex</h2></div><button className="btn ghost" onClick=${()=>update(s=>{s.member=selected;s.view='map';})}>🗺️ Vis på kart</button></div>
     <section className="profile-hero">
-      <div className="profile-avatar">${selected===FELLES?'👥':selected.slice(0,1).toUpperCase()}</div>
-      <div className="profile-intro"><label>Velg fisker<select value=${selected} onChange=${e=>changeMember(e.target.value)}>${allMembers.map(m=>html`<option key=${m} value=${m}>${memberName(m)}</option>`)}</select></label><h3>${memberName(selected)}</h3><p>${rank ? `#${rank} på topplisten` : 'Klar for første fangst'} · ${stats.count||0} arter registrert · ${stats.reactions||0} reaksjoner</p></div>
+      <div className="profile-avatar-wrap">
+        <div className=${'profile-avatar'+(profilePhoto?' has-photo':'')}>
+          ${profilePhoto ? html`<img src=${profilePhoto} alt=${`Profilbilde av ${memberName(selected)}`}/>` : (selected===FELLES?'👥':selected.slice(0,1).toUpperCase())}
+        </div>
+        ${canEdit() && selected!==FELLES && html`
+          <input id=${photoInputId} className="vh" type="file" accept="image/*" onChange=${onProfilePhoto}/>
+          <label className="profile-photo-edit" htmlFor=${photoInputId} title="Bytt profilbilde">${uploadingPhoto?'⏳':'📷'}<span>${uploadingPhoto?'Lagrer':'Bilde'}</span></label>
+        `}
+      </div>
+      <div className="profile-intro"><label>Velg fisker<select value=${selected} onChange=${e=>changeMember(e.target.value)}>${allMembers.map(m=>html`<option key=${m} value=${m}>${memberName(m)}</option>`)}</select></label><h3>${memberName(selected)}</h3><p>${rank ? `#${rank} på topplisten` : 'Klar for første fangst'} · ${stats.count||0} arter registrert · ${stats.reactions||0} reaksjoner</p>
+        ${canEdit() && selected!==FELLES && html`<div className="profile-photo-help"><b>${profilePhoto?'Profilbilde valgt':'Ingen profilbilde ennå'}</b><span>Trykk på kameraet for å velge eller bytte bilde.</span>${profilePhoto && html`<button onClick=${removeProfilePhoto}>Fjern bilde</button>`}</div>`}
+      </div>
       <div className="profile-hero-actions">${canEdit() && html`<button className="btn primary" onClick=${()=>update(s=>{s.member=selected;s.catchOpen=true;})}>🎣 Registrer fangst</button>`}<button className="btn ghost" onClick=${()=>update(s=>{s.member=selected;s.view='dex';s.filterMine=true;})}>🐟 Se min Dex</button></div>
     </section>
 

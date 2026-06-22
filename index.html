@@ -1,78 +1,57 @@
-// Automatisk artsinfo for manuelt lagde arter.
-// Først prøver vi appens egen artsliste, deretter norsk Wikipedia via åpent API.
-import { SEED, ARTSINFO } from './data.js';
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; script-src 'self' https://unpkg.com https://cdn.jsdelivr.net 'unsafe-inline'; style-src 'self' https://unpkg.com https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://wouuhaozirderymjtcsr.supabase.co wss://wouuhaozirderymjtcsr.supabase.co https://api.open-meteo.com https://vannstand.kartverket.no https://no.wikipedia.org https://tile.openstreetmap.org; worker-src 'self'; manifest-src 'self'; upgrade-insecure-requests">
+<title>FiskeDex – Karmøy Fishing Championship</title>
 
-function norm(s){
-  return String(s||'')
-    .toLowerCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
-    .replace(/\s+/g,' ')
-    .trim();
-}
+<!-- PWA -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#122b36">
+<link rel="apple-touch-icon" href="img/icon-192.png">
+<link rel="icon" href="img/icon-192.png">
+<link rel="preload" href="img/forside.jpg" as="image" fetchpriority="high">
 
-const LOCAL_BY_NAME = new Map(SEED.map(([id,name])=>[norm(name), {id, name}]));
+<!-- Rammeverk: React 18 + htm (JSX uten byggeverktøy) -->
+<script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/htm@3.1.1/dist/htm.umd.js"></script>
 
-function cleanText(text){
-  return String(text||'')
-    .replace(/\s*\([^)]*lytt[^)]*\)/gi,'')
-    .replace(/\[[^\]]*\]/g,'')
-    .replace(/\s+/g,' ')
-    .trim();
-}
+<!-- Tjenester: Supabase (database) + Leaflet (kart) -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-function splitSentences(text){
-  return cleanText(text)
-    .split(/(?<=[.!?])\s+/)
-    .map(s=>s.trim())
-    .filter(Boolean);
-}
+<!-- Raskere og tryggere lasting av eksterne ressurser -->
+<link rel="preconnect" href="https://unpkg.com" crossorigin>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://wouuhaozirderymjtcsr.supabase.co" crossorigin>
 
-function shortenInfo(text){
-  const sentences = splitSentences(text);
-  if(!sentences.length) return '';
+<!-- Fonter -->
+<link href="https://fonts.googleapis.com/css2?family=Staatliches&family=Public+Sans:ital,wght@0,400;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 
-  const useful = sentences.filter(s=>/(kjennetegn|farge|rygg|buk|finn|hal|munn|skjegg|flekk|stripe|prikk|lang|stor|kan bli|blir|vokser|vekt|cm|meter|kg)/i.test(s));
-  let picked = (useful.length ? useful : sentences).slice(0, 2).join(' ');
+<!-- FiskeDex-designet -->
+<link rel="stylesheet" href="css/theme.css?v=22">
+<link rel="stylesheet" href="css/components.css?v=22">
+</head>
+<body>
 
-  // Hold teksten veldig kort: helst kjennetegn + størrelse, ikke lang Wikipedia-tekst.
-  if(picked.length > 170) picked = picked.slice(0, 170).replace(/\s+\S*$/, '') + ' …';
-  return picked;
-}
-
-export async function fetchAutoSpeciesInfo(name){
-  const q = String(name||'').trim();
-  if(!q) return null;
-
-  const local = LOCAL_BY_NAME.get(norm(q));
-  if(local && ARTSINFO[local.id]){
-    const i = ARTSINFO[local.id];
-    return {
-      info: shortenInfo(i.info || ''),
-      min: i.min || '',
-      fredet: !!i.fredet,
-      source: 'FiskeDex'
-    };
+<div id="app"></div>
+<script>
+window.addEventListener('error', function(event){
+  var root = document.getElementById('app');
+  if(root && !root.children.length){
+    root.innerHTML = '<div class="boot-error"><h1>FiskeDex lastes ikke riktig</h1><p>Last siden på nytt. Hvis det fortsatt er tomt, slett nettstedsdata/cache for fiskedex.no og prøv igjen.</p><button class="btn primary" onclick="location.reload()">Last inn på nytt</button></div>';
   }
+});
+</script>
 
-  try{
-    // Norsk Wikipedia har CORS-støtte via origin=*. Vi henter bare kort ingress.
-    const url = 'https://no.wikipedia.org/w/api.php?action=query&origin=*&format=json&prop=extracts&exintro=1&explaintext=1&redirects=1&titles=' + encodeURIComponent(q);
-    const r = await fetch(url);
-    if(!r.ok) return null;
-    const d = await r.json();
-    const pages = d && d.query && d.query.pages ? Object.values(d.query.pages) : [];
-    const page = pages.find(p=>p && !p.missing && p.extract);
-    if(!page) return null;
-    const info = shortenInfo(page.extract);
-    if(!info) return null;
-    return {
-      info,
-      // Minstemål/regler er ikke trygt å gjette fra Wikipedia. Legges bare inn automatisk når appen allerede kjenner regelen.
-      min: '',
-      fredet: false,
-      source: 'Wikipedia'
-    };
-  }catch(e){
-    return null;
-  }
-}
+<!-- Appen (ES-moduler) -->
+<script type="module" src="js/app.js?v=22"></script>
+
+</body>
+</html>

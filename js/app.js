@@ -108,8 +108,11 @@ function MembersBar(){
     <button className=${'mchip'+(store.member===null?' active':'')}
             onClick=${()=>update(s=>{ s.member = null; })}>👥 Alle</button>
     ${store.members.map(m=>html`
-      <button key=${m} className=${'mchip'+(store.member===m?' active':'')}
-              onClick=${()=>update(s=>{ s.member = m; })}>${m}</button>`)}
+      <button key=${m} className=${'mchip member-chip'+(store.member===m?' active':'')}
+              onClick=${()=>update(s=>{ s.member = m; })}>
+        ${store.profilePhotos && store.profilePhotos[m] ? html`<img className="member-chip-avatar" src=${store.profilePhotos[m]} alt=""/>` : null}
+        <span>${m}</span>
+      </button>`)}
     ${store.member && html`<button className="mchip profile-chip" onClick=${()=>update(s=>{ s.profileMember=s.member; s.view='profiles'; })}>👤 Profil</button>`}
     ${editable && html`<button className="mchip add" onClick=${()=>update(s=>{ s.memberOpen = true; })}>+ Fisker</button>`}
   </div>`;

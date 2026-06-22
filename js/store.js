@@ -31,6 +31,8 @@ export const store = {
   lightboxUrl: null,
   catchOpen: false,
   profileMember: null,
+  // { navn: dataURL }. Holdes separat fra navnene, så gammel data fortsatt virker.
+  profilePhotos: {},
   toastMsg: '',
   weather: '',
 };
@@ -104,6 +106,9 @@ export async function reload(quiet){
         return a.id.localeCompare(b.id, 'nb');
       });
       s.members = memberRows.map(r=>r.name);
+      s.profilePhotos = Object.fromEntries(
+        memberRows.filter(r=>r && r.name && r.profile_photo).map(r=>[r.name, r.profile_photo])
+      );
       if(s.member && !s.members.includes(s.member)) s.member = null;
       s.loaded = true;
     });

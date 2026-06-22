@@ -1,8 +1,8 @@
-/*
-  Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
-  X-Content-Type-Options: nosniff
-  X-Frame-Options: DENY
-  Referrer-Policy: strict-origin-when-cross-origin
-  Cross-Origin-Opener-Policy: same-origin
-  Permissions-Policy: camera=(), microphone=(), payment=(), usb=(), geolocation=(self)
-  Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; frame-ancestors 'none'; script-src 'self' https://unpkg.com https://cdn.jsdelivr.net 'unsafe-inline'; style-src 'self' https://unpkg.com https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://wouuhaozirderymjtcsr.supabase.co wss://wouuhaozirderymjtcsr.supabase.co https://api.open-meteo.com https://vannstand.kartverket.no https://no.wikipedia.org https://tile.openstreetmap.org; worker-src 'self'; manifest-src 'self'; upgrade-insecure-requests
+FiskeDex v22 – profilbilder
+
+1. Last opp alle filene til GitHub Pages som vanlig.
+2. Åpne Supabase > SQL Editor > New query.
+3. Åpne filen fiskedex_v22_profilbilder.sql fra denne pakken, lim inn og trykk Run.
+4. I FiskeDex: åpne Profiler, velg fisker og trykk på kameraet ved profilbildet.
+
+Profilbildet blir komprimert automatisk før lagring. Gjester kan se bildene, men ikke endre dem.

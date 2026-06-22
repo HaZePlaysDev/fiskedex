@@ -19,11 +19,16 @@ export async function logout(){ await sb.auth.signOut(); }
 
 /* ---------- lesing ---------- */
 export async function fetchAll(){
-  const [sp, me, ca] = await Promise.all([
+  // profile_photo kom til i v22. Fall tilbake til gamle medlemmer-tabeller
+  // dersom SQL-en ikke er kjørt ennå, slik at appen fortsatt åpner normalt.
+  const [sp, ca] = await Promise.all([
     sb.from('species').select('*'),
-    sb.from('members').select('name').order('name'),
     sb.from('catches').select('*'),
   ]);
+  let me = await sb.from('members').select('name,profile_photo').order('name');
+  if(me.error && /profile_photo/i.test(String(me.error.message||''))){
+    me = await sb.from('members').select('name').order('name');
+  }
   if(sp.error || me.error || ca.error) throw (sp.error || me.error || ca.error);
 
   // Hent småbilder samtidig med resten. Dette gjør at artskortene får bilder med en gang
@@ -105,6 +110,17 @@ export async function deleteSpeciesRow(id){
 export async function addMemberRow(name){
   const r = await sb.from('members').upsert({name});
   return !r.error;
+}
+
+// Profilbilder lagres komprimert i members-tabellen. Bildet er med vilje lite
+// (miniutgaven fra compressImage), så det går raskt å laste på mobil.
+export async function saveMemberProfilePhoto(name, dataUrl){
+  const r = await sb.from('members').update({profile_photo:dataUrl}).eq('name', name);
+  return { ok: !r.error, error: r.error || null };
+}
+export async function deleteMemberProfilePhoto(name){
+  const r = await sb.from('members').update({profile_photo:null}).eq('name', name);
+  return { ok: !r.error, error: r.error || null };
 }
 export async function removeMemberRows(name){
   await sb.from('photos').delete().eq('member', name);
