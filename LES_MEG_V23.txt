@@ -1,0 +1,19 @@
+FISKEDEX V23 – DESIGNOPPDATERING
+
+Dette er endret:
+- Ny, enklere hovedmeny: Hjem, Dex, Fangster, Kart og Profil.
+- Ny mobilmeny nederst med fem faste valg og en stor Fangst-knapp i midten.
+- Nytt dashboard med personlig hilsen, fremdrift, siste fangst, leder og snarveier.
+- Nye Dex-kort med tydelige kategorifarger og bedre skille mellom art og fangst.
+- Mythical encounters har lilla uttrykk i både Dex og dashboard.
+- Profilene ser mer ut som spill-/spillerprofiler.
+- Rekorder og toppliste er fortsatt tilgjengelig fra dashboard og profil, men er ikke lenger i hovedmenyen.
+
+INGEN NY SQL:
+Denne oppdateringen bruker samme database som v22. Ikke kjør ny SQL for v23.
+
+INSTALLASJON:
+1. Pakk ut hele zip-filen.
+2. Last opp/erstatt alle filene på GitHub Pages.
+3. Lukk gamle faner på mobil og PC, og åpne siden på nytt.
+4. Hvis mobilen fortsatt viser gammel versjon, slett nettstedsdata/cache for fiskedex.no.

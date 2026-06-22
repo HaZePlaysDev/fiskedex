@@ -422,3 +422,152 @@ button:disabled{opacity:.6;cursor:wait}
 .profile-photo-edit:hover{background:#bd481b}
 .profile-photo-help{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:9px;color:#d9e8e8;font-size:11.5px}.profile-photo-help b{font-size:11.5px;color:#fff}.profile-photo-help span{color:#b9c9cc}.profile-photo-help button{border:0;background:transparent;padding:0;color:#f8b385;text-decoration:underline;font-size:11.5px;font-weight:800;cursor:pointer}
 @media (max-width:640px){.profile-avatar-wrap{width:60px;height:60px}.profile-photo-edit{right:-8px;bottom:-8px;padding:5px 7px}.profile-photo-edit span{display:none}.profile-photo-help{font-size:11px}.member-chip-avatar{width:19px;height:19px}}
+
+/* ---------- v23: samordnet app-design ---------- */
+:root{
+  --cat-f:#34855b;
+  --cat-k:#d7642a;
+  --cat-b:#2879b7;
+  --cat-h:#13888f;
+  --cat-m:#7d4ec0;
+  --app-shadow:0 12px 30px rgba(18,43,54,.10);
+}
+
+/* App-shell og navigasjon */
+.app-toolbar-v23{
+  padding-top:14px!important;
+  padding-bottom:10px!important;
+  gap:14px!important;
+}
+.app-primary-nav{gap:8px!important}
+.app-primary-nav .nav-tab{
+  min-height:42px;
+  padding:9px 15px;
+  background:transparent;
+  border-color:transparent;
+  color:var(--blek);
+}
+.app-primary-nav .nav-tab:hover{background:#d7e5e5;color:var(--hav)}
+.app-primary-nav .nav-tab.active{background:var(--hav);color:#fff;box-shadow:0 4px 12px rgba(18,43,54,.16)}
+.app-toolbar-actions{display:flex;align-items:center;gap:8px;margin-left:auto}
+.app-toolbar-actions .tab{min-height:40px}
+.toolbar-quiet{font-size:18px!important;line-height:1;padding:7px 11px!important}
+.toolbar-secondary{font-weight:800!important}
+.catch-cta{min-height:42px;padding:10px 18px!important;box-shadow:0 5px 0 #8f2f12,0 9px 16px rgba(200,70,26,.18)!important}
+
+/* Dashboard */
+.dashboard-v23{gap:18px!important;margin-top:20px!important}
+.dashboard-v23 .dash-hero-card{
+  min-height:250px;
+  border:none;
+  color:#f6f3ea;
+  background:
+    radial-gradient(circle at 90% 14%,rgba(255,178,104,.23),transparent 28%),
+    radial-gradient(circle at 18% 100%,rgba(54,133,91,.42),transparent 44%),
+    linear-gradient(135deg,#102832,#183f4e 62%,#1d5262);
+  box-shadow:var(--app-shadow);
+  position:relative;
+  overflow:hidden;
+}
+.dashboard-v23 .dash-hero-card:before{
+  content:"";position:absolute;inset:auto -8% -80px 42%;height:190px;
+  border:1px solid rgba(255,255,255,.13);border-radius:50%;
+  box-shadow:0 -34px 0 -1px rgba(255,255,255,.08),0 -68px 0 -1px rgba(255,255,255,.055);
+  transform:rotate(-7deg);pointer-events:none;
+}
+.dashboard-v23 .dash-hero-card .eyebrow{color:#bcd4d7}
+.dashboard-v23 .dash-hero-card h2{color:#fff;max-width:700px;font-size:clamp(38px,5.3vw,66px)!important}
+.dashboard-v23 .dash-hero-card p{color:#d7e4e5;max-width:620px;font-size:15px}
+.dashboard-v23 .dash-hero-card p b{color:#fff}
+.dash-welcome{position:relative;z-index:1}
+.dashboard-v23 .big-progress{position:relative;z-index:1;background:rgba(4,23,31,.26);border:1px solid rgba(255,255,255,.18);border-radius:18px;padding:16px 18px;min-width:190px;backdrop-filter:blur(5px)}
+.dashboard-v23 .big-progress span{color:#ffb26c;font-size:56px}
+.dashboard-v23 .big-progress i{background:rgba(255,255,255,.18)}
+.dashboard-v23 .big-progress b{background:linear-gradient(90deg,#ffb26c,#f6e2a0)}
+.dashboard-v23 .big-progress small{font-family:'IBM Plex Mono',monospace;letter-spacing:.1em;color:#d4e0e1;font-size:10px}
+.dashboard-v23 .dash-card{box-shadow:0 6px 16px rgba(18,43,54,.06);border-radius:18px}
+.dashboard-v23 .dash-card:hover{box-shadow:var(--app-shadow)}
+.dashboard-v23 .dash-card-head{padding-bottom:8px;border-bottom:1px solid #e1eaeb}
+.dashboard-v23 .dash-card-head button{border-color:#d5e2e3;background:#f8fbfb}
+.dashboard-v23 .mystery-card{background:linear-gradient(135deg,#231a38,#39255c 62%,#5b2e7e);border:none;box-shadow:var(--app-shadow)}
+.dashboard-v23 .mystery-mark{border-color:#c5a9ec;color:#dbc7ff;background:rgba(255,255,255,.08);box-shadow:0 0 0 6px rgba(255,255,255,.04)}
+.dashboard-v23 .quick-grid button{min-height:64px;display:flex;align-items:center;justify-content:center;gap:6px;background:#fbfcf9}
+.dashboard-v23 .quick-grid button:hover{color:var(--boye);border-color:var(--boye)}
+
+/* Art-kort. Kategorien er en tydelig, gjennomgående farge. */
+.grid{gap:16px!important}
+.card{border-radius:18px!important;overflow:hidden;border:1px solid #d7e3e5!important;box-shadow:0 5px 16px rgba(18,43,54,.06)!important;position:relative;transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease!important}
+.card:hover{transform:translateY(-4px);box-shadow:var(--app-shadow)!important}
+.card:after{content:"";position:absolute;top:0;left:0;right:0;height:6px;background:var(--cat-color,var(--hav));z-index:2}
+.card.cat-F{--cat-color:var(--cat-f)}
+.card.cat-K{--cat-color:var(--cat-k)}
+.card.cat-B{--cat-color:var(--cat-b)}
+.card.cat-H{--cat-color:var(--cat-h)}
+.card.cat-M{--cat-color:var(--cat-m)}
+.card .img{height:184px!important;background:#e6eeee!important}
+.card .body{padding:14px 14px 16px!important}
+.card-kicker{display:flex;align-items:center;justify-content:space-between;gap:9px;margin-bottom:7px}
+.card .id{margin:0!important;font-size:10.5px!important;color:var(--blek)!important}
+.card-category{font-size:10px;font-weight:900;letter-spacing:.07em;text-transform:uppercase;color:var(--cat-color,var(--hav));background:color-mix(in srgb,var(--cat-color,var(--hav)) 11%,white);border-radius:999px;padding:4px 7px;white-space:nowrap}
+.card .name{font-size:31px!important;letter-spacing:.02em!important}
+.card .meta{min-height:34px;line-height:1.35!important;color:#5e747a!important}
+.card .stamp{border-radius:8px!important;right:10px!important;bottom:12px!important;background:var(--cat-color,var(--tang))!important;border-color:var(--cat-color,var(--tang))!important;transform:none!important;color:#fff!important}
+.card.uncaught{background:#f7f8f4!important}
+.card.cat-M.uncaught{background:linear-gradient(160deg,#2b2141,#43305d)!important;color:#f8f4ff!important;border-color:#6e5296!important}
+.card.cat-M.uncaught .name,.card.cat-M.uncaught .id{color:#f8f4ff!important}
+.card.cat-M.uncaught .meta{color:#d8cce8!important}
+.card.cat-M.uncaught .mystery-hint{background:rgba(255,255,255,.08)!important;border-color:#a78bce!important}
+.card.cat-M.uncaught .mystery-hint b,.card.cat-M.uncaught .mystery-hint span{color:#eee7ff!important}
+
+/* Dexter og kategorier */
+.cat-banner{border-radius:18px!important;overflow:hidden;box-shadow:var(--app-shadow)}
+.cat-banner .inner{padding:20px!important}
+.cat-banner h2{font-size:48px!important}
+.dex-tools{padding-top:6px!important;padding-bottom:4px!important}
+.cat-tabs .tab{background:#f6faf9;border-color:#d1e0e1}
+.cat-tabs .tab.active{background:var(--hav);border-color:var(--hav)}
+
+/* Profil = spillerkort */
+.profile-hero{border-radius:20px!important;box-shadow:var(--app-shadow);background:linear-gradient(135deg,#122b36,#1c4b5c)!important;color:#f7f4eb!important;border:none!important}
+.profile-hero .profile-intro h3{color:#fff!important}
+.profile-hero .profile-intro p{color:#d1e2e4!important}
+.profile-hero label{color:#d1e2e4!important}
+.profile-hero select{background:rgba(255,255,255,.94)!important}
+.profile-avatar{border-width:5px!important;box-shadow:0 0 0 5px rgba(255,255,255,.10)}
+.profile-stat-grid>div{border-radius:16px!important;box-shadow:0 5px 14px rgba(18,43,54,.06)}
+.badge-grid>div{border-radius:14px!important}
+
+/* Fast bunnmeny med kun fem hovedvalg. */
+.mobile-bottom-nav{display:none}
+@media (max-width:640px){
+  body{padding-bottom:88px}
+  .app-toolbar-v23{padding:9px 12px 5px!important;position:sticky;top:0;z-index:38;background:rgba(227,237,238,.94);backdrop-filter:blur(12px);border-bottom:1px solid rgba(198,214,216,.8)}
+  .app-primary-nav{width:100%;justify-content:space-between;overflow:visible!important;padding:0!important;gap:3px!important}
+  .app-primary-nav .nav-tab{min-height:36px;padding:7px 9px;font-size:11px;border-radius:10px;flex:1}
+  .app-toolbar-actions{display:none}
+  .members-bar{padding:8px 12px!important;overflow-x:auto;white-space:nowrap}
+  .members-bar .mlabel{margin-left:0!important}
+  .mobile-bottom-nav{display:grid!important;grid-template-columns:repeat(5,1fr)!important;align-items:end;min-height:74px;background:rgba(251,250,245,.98)!important;box-shadow:0 -8px 24px rgba(18,43,54,.10);border-top:none!important}
+  .mobile-bottom-nav button{min-width:0;min-height:58px;justify-content:flex-end;padding-bottom:3px}
+  .mobile-bottom-nav button:not(.mobile-catch-btn){font-size:20px!important}
+  .mobile-bottom-nav button span{font-size:9px!important;font-weight:800;letter-spacing:.01em}
+  .mobile-bottom-nav .mobile-catch-btn{width:58px;height:58px;justify-self:center;align-self:start;transform:translateY(-22px);border-radius:50%!important;background:var(--boye)!important;color:#fff!important;box-shadow:0 6px 0 #8f2f12,0 12px 22px rgba(200,70,26,.28)!important;font-size:30px!important;padding:0!important;gap:0!important}
+  .mobile-bottom-nav .mobile-catch-btn span{font-size:8px!important;margin-top:-2px}
+  .dashboard-v23{margin-top:10px!important;gap:12px!important}
+  .dashboard-v23 .dash-hero-card{min-height:0;padding:20px 17px!important;border-radius:18px!important}
+  .dashboard-v23 .dash-hero-card h2{font-size:39px!important}
+  .dashboard-v23 .big-progress{width:100%;padding:11px 13px!important;display:flex;align-items:center;gap:12px}
+  .dashboard-v23 .big-progress span{font-size:42px!important;flex:none}
+  .dashboard-v23 .big-progress i{flex:1;margin:0!important}
+  .dashboard-v23 .big-progress small{display:none}
+  .dash-hero-actions{gap:8px!important}.dash-hero-actions .btn{width:100%;justify-content:center}
+  .card .img{height:162px!important}
+  .card .name{font-size:28px!important}
+  .cat-banner h2{font-size:38px!important}
+}
+
+@media (max-width:420px){
+  .app-primary-nav .nav-tab{font-size:10px;padding:7px 5px}
+  .card .img{height:146px!important}
+}
+@media (max-width:640px){.app-toolbar-v23{display:none!important}}

@@ -48,6 +48,14 @@ function firstSentence(text){
   return (text||'').split(/[.!?]/)[0].trim();
 }
 
+function dashboardGreeting(){
+  const hour = new Date().getHours();
+  if(hour < 6) return 'God natt';
+  if(hour < 12) return 'God morgen';
+  if(hour < 18) return 'God dag';
+  return 'God kveld';
+}
+
 function mysterySpecies(){
   const missing = store.species.filter(s=>catchers(s).length===0);
   if(!missing.length) return null;
@@ -102,17 +110,18 @@ export function DashboardView(){
   const photoCount = rows.filter(r=>r.catch.hasPhoto).length;
   const progress = catProgressRows();
   const next = [...progress].sort((a,b)=>a.pct-b.pct || a.caught-b.caught)[0] || null;
+  const welcomeName = store.member || store.profileMember || store.members[0] || 'fisker';
 
-  return html`<div className="dashboard dashboard-v20">
+  return html`<div className="dashboard dashboard-v20 dashboard-v23">
     <section className="dash-hero-card wide dash-command-card">
-      <div>
-        <div className="eyebrow">Karmøy Fishing Championship</div>
-        <h2>${caught}/${tot} arter kartlagt</h2>
-        <p>${tot-caught ? `${tot-caught} arter mangler fortsatt. Neste mål: ${next ? CATS[next.cat].name : 'utforsk dexen'}.` : 'Alle arter er kartlagt. Legendarisk innsats.'}</p>
+      <div className="dash-welcome">
+        <div className="eyebrow">Dagens oversikt</div>
+        <h2>${dashboardGreeting()}, ${memberName(welcomeName)} <span aria-hidden="true">👋</span></h2>
+        <p><b>${caught}/${tot} arter</b> er kartlagt. ${tot-caught ? `${tot-caught} mangler fortsatt — neste kategori: ${next ? CATS[next.cat].name : 'utforsk dexen'}.` : 'Alle arter er kartlagt. Legendarisk innsats.'}</p>
         <div className="dash-hero-actions">
           ${canEdit() && html`<button className="btn primary dashboard-catch" onClick=${()=>update(s=>{s.catchOpen=true;})}>🎣 Registrer fangst</button>`}
-          <button className="btn ghost" onClick=${()=>update(s=>{s.view='dex';})}>🐟 Utforsk Dex</button>
-          <button className="btn ghost" onClick=${()=>update(s=>{s.view='records';})}>🏆 Se rekorder</button>
+          <button className="btn ghost" onClick=${()=>update(s=>{s.view='dex';})}>◈ Utforsk Dex</button>
+          <button className="btn ghost" onClick=${()=>update(s=>{s.view='records';})}>🏆 Rekorder</button>
         </div>
       </div>
       <div className="big-progress"><span>${pct}%</span><i><b style=${{width:pct+'%'}}></b></i><small>FULLFØRT</small></div>

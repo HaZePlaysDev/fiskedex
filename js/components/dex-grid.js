@@ -34,7 +34,7 @@ export function SpeciesCard({ s, photoUrl }){
   }
   const open = ()=>update(st=>{ st.detailId = s.id; });
   return html`
-    <div className=${'card' + (caught?'':' uncaught mystery-locked')} role="button" tabIndex="0"
+    <div className=${'card cat-'+s.cat + (caught?'':' uncaught mystery-locked')} role="button" tabIndex="0"
          onClick=${open}
          onKeyDown=${e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); open(); } }}>
       <div className=${'img' + (photoUrl?'':' empty') + (photoLoading?' loading-photo':'')}>
@@ -45,7 +45,7 @@ export function SpeciesCard({ s, photoUrl }){
             : html`<span dangerouslySetInnerHTML=${{__html: silFor(s)}}/>`}
       </div>
       <div className="body">
-        <div className="id">${s.id}</div>
+        <div className="card-kicker"><span className="id">${s.id}</span><span className="card-category">${CATS[s.cat] ? CATS[s.cat].name : 'Annet'}</span></div>
         <div className="name">${s.name}</div>
         <div className="meta">${meta}</div>
         ${reactionSum>0 && html`<div className="card-reacts">🔥 ${reactionSum} reaksjoner</div>`}

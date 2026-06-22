@@ -24,29 +24,18 @@ async function init(){
 
 function MainNav(){
   useStore();
-  const editable = canEdit();
-  const openOrder = ()=>update(s=>{
-    s.view = 'dex';
-    s.orderOpen = true;
-    const cats = catOrder();
-    const chosen = (s.filterCat && s.filterCat !== 'ALL') ? s.filterCat : (s.orderCat || cats[0]);
-    if(chosen) s.orderCat = chosen;
-    // Vis valgt kategori når man skal sortere, ellers kan knappen føles skjult i "Alle".
-    if(chosen) s.filterCat = chosen;
-  });
   const nav = [
-    ['dashboard','🏠 Dashboard'],
-    ['dex','🐟 Dex'],
+    ['dashboard','⌂ Hjem'],
+    ['dex','◈ Dex'],
     ['fangster','📜 Fangster'],
     ['map','🗺️ Kart'],
-    ['stats','📊 Toppliste'],
-    ['profiles','👤 Profiler'],
-    ['records','🏆 Rekorder'],
-    ['guests','👀 Gjester'],
+    ['profiles','👤 Profil'],
   ];
-  return html`<nav className="main-nav" aria-label="Hovedmeny">
-    ${nav.map(([key,label])=>html`<button key=${key} className=${'nav-tab'+(store.view===key?' active':'')} onClick=${()=>update(s=>{ s.view = key; })}>${label}</button>`)}
-    ${editable && html`<button className=${'nav-tab order-nav-tab'+(store.view==='dex' && store.orderOpen?' active':'')} onClick=${openOrder}>↕ Rekkefølge</button>`}
+  return html`<nav className="main-nav app-primary-nav" aria-label="Hovedmeny">
+    ${nav.map(([key,label])=>html`<button key=${key} className=${'nav-tab'+(store.view===key?' active':'')} onClick=${()=>update(s=>{
+      s.view = key;
+      if(key==='profiles' && !s.profileMember) s.profileMember=s.member||s.members[0]||null;
+    })}>${label}</button>`)}
   </nav>`;
 }
 
@@ -203,18 +192,20 @@ function App(){
 
     ${store.weather && html`<div className="weather-bar" dangerouslySetInnerHTML=${{__html: store.weather}}/>`}
 
-    <div className="toolbar main-toolbar">
+    <div className="toolbar main-toolbar app-toolbar-v23">
       <${MainNav}/>
-      ${editable && html`<button className="btn-add catch-cta" onClick=${()=>update(s=>{ s.catchOpen=true; })}>+ Registrer fangst</button>`}
-      <button className="tab" title="Hent kompisenes siste fangster" onClick=${()=>reload(false)}>↻ Oppdater</button>
-      ${editable && html`<button className="tab order-toolbar-btn" title="Dra fiskene i ønsket rekkefølge" onClick=${()=>update(s=>{
-        s.view='dex';
-        s.orderOpen=true;
-        const cats = catOrder();
-        const chosen = (s.filterCat && s.filterCat !== 'ALL') ? s.filterCat : (s.orderCat || cats[0]);
-        if(chosen){ s.orderCat=chosen; s.filterCat=chosen; }
-      })}>↕ Endre rekkefølge</button>`}
-      ${store.guest && html`<button className="tab guest-login" onClick=${leaveGuest}>Logg inn for å redigere</button>`}
+      <div className="app-toolbar-actions">
+        ${editable && html`<button className="btn-add catch-cta" onClick=${()=>update(s=>{ s.catchOpen=true; })}>🎣 Registrer fangst</button>`}
+        <button className="tab toolbar-quiet" title="Hent siste fangster" onClick=${()=>reload(false)}>↻</button>
+        ${editable && html`<button className="tab order-toolbar-btn toolbar-secondary" title="Dra fiskene i ønsket rekkefølge" onClick=${()=>update(s=>{
+          s.view='dex';
+          s.orderOpen=true;
+          const cats = catOrder();
+          const chosen = (s.filterCat && s.filterCat !== 'ALL') ? s.filterCat : (s.orderCat || cats[0]);
+          if(chosen){ s.orderCat=chosen; s.filterCat=chosen; }
+        })}>↕ Sorter</button>`}
+        ${store.guest && html`<button className="tab guest-login" onClick=${leaveGuest}>Logg inn</button>`}
+      </div>
     </div>
 
     <${MembersBar}/>
@@ -233,21 +224,14 @@ function App(){
         : html`<${DexGrid}/>`}
     </main>
 
-    <div className="mobile-bottom-nav">
-      <button className=${store.view==='dashboard'?'active':''} onClick=${()=>update(s=>{s.view='dashboard';})}>🏠<span>Start</span></button>
-      ${editable && html`<button className="mobile-catch-btn" onClick=${()=>update(s=>{s.catchOpen=true;})}>＋<span>Fangst</span></button>`}
-      <button className=${store.view==='dex'?'active':''} onClick=${()=>update(s=>{s.view='dex';})}>🐟<span>Dex</span></button>
-      <button className=${store.view==='fangster'?'active':''} onClick=${()=>update(s=>{s.view='fangster';})}>📜<span>Fangster</span></button>
+    <div className=${'mobile-bottom-nav '+(editable?'has-catch':'guest-nav')}>
+      <button className=${store.view==='dashboard'?'active':''} onClick=${()=>update(s=>{s.view='dashboard';})}>⌂<span>Hjem</span></button>
+      <button className=${store.view==='dex'?'active':''} onClick=${()=>update(s=>{s.view='dex';})}>◈<span>Dex</span></button>
+      ${editable
+        ? html`<button className="mobile-catch-btn" onClick=${()=>update(s=>{s.catchOpen=true;})}>＋<span>Fangst</span></button>`
+        : html`<button className=${store.view==='fangster'?'active':''} onClick=${()=>update(s=>{s.view='fangster';})}>📜<span>Fangster</span></button>`}
       <button className=${store.view==='map'?'active':''} onClick=${()=>update(s=>{s.view='map';})}>🗺️<span>Kart</span></button>
-      <button className=${store.view==='stats'?'active':''} onClick=${()=>update(s=>{s.view='stats';})}>📊<span>Toppen</span></button>
       <button className=${store.view==='profiles'?'active':''} onClick=${()=>update(s=>{s.profileMember=s.profileMember||s.member||s.members[0]||null;s.view='profiles';})}>👤<span>Profil</span></button>
-      ${editable && html`<button className=${store.view==='dex' && store.orderOpen?'active':''} onClick=${()=>update(s=>{
-        s.view='dex';
-        s.orderOpen=true;
-        const cats = catOrder();
-        const chosen = (s.filterCat && s.filterCat !== 'ALL') ? s.filterCat : (s.orderCat || cats[0]);
-        if(chosen){ s.orderCat=chosen; s.filterCat=chosen; }
-      })}>↕<span>Sorter</span></button>`}
     </div>
 
     ${store.detailId && html`<${DetailModal}/>`}
