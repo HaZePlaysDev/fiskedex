@@ -633,3 +633,76 @@ header{width:100%!important;max-width:none!important}
   .mobile-bottom-nav{display:grid!important}
 }
 @media (max-width:380px){.member-menu-trigger>span:nth-child(2){display:none}.member-menu-trigger{min-width:38px;justify-content:center}.dex-search-row .filter-toggle{padding:7px 9px;font-size:11px}.card .name{font-size:21px!important}}
+
+
+/* ---------- v25: mobilvennlig Dex-verktøylinje ---------- */
+.mobile-category-select{display:none}
+@media (max-width:900px){
+  .dex-tools-clean{
+    width:100%!important;
+    max-width:none!important;
+    min-width:0!important;
+    overflow:visible!important;
+  }
+  /* På mobil bruker vi en enkel kategori-meny i stedet for en bred, horisontal knapperad. */
+  .dex-tools-clean .cat-tabs{display:none!important}
+  .mobile-category-select{
+    display:flex!important;
+    align-items:center;
+    gap:8px;
+    width:100%;
+    min-width:0;
+    padding:0 1px;
+    color:var(--blek);
+    font-family:'IBM Plex Mono',monospace;
+    font-size:10px;
+    font-weight:800;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+  }
+  .mobile-category-select select{
+    flex:1;
+    min-width:0;
+    min-height:42px;
+    border:1.5px solid #c8d9db;
+    border-radius:12px;
+    background:#f8fbfa;
+    color:var(--hav);
+    padding:8px 10px;
+    font-family:'Public Sans',sans-serif;
+    font-size:14px;
+    font-weight:800;
+  }
+  .dex-search-row{
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) auto;
+    width:100%;
+    max-width:100%;
+    min-width:0;
+    align-items:center;
+  }
+  .dex-search-row .search{
+    width:100%!important;
+    min-width:0!important;
+    max-width:none!important;
+    padding:10px 12px!important;
+  }
+  .dex-search-row .search input{
+    width:0!important;
+    min-width:0!important;
+    flex:1 1 auto!important;
+  }
+  .dex-search-row .filter-toggle{
+    min-height:42px;
+    padding:8px 11px!important;
+    white-space:nowrap!important;
+    justify-self:end;
+  }
+  .dex-filter-panel{width:100%;max-width:100%;min-width:0}
+}
+@media (max-width:380px){
+  .mobile-category-select{font-size:9px;gap:5px}
+  .mobile-category-select select{font-size:13px;padding:8px}
+  .dex-search-row .filter-toggle{padding:8px 9px!important;font-size:11px}
+  .dex-search-row .search{padding:9px 10px!important}
+}

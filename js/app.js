@@ -68,6 +68,12 @@ function DexTools(){
     <div className="tabs cat-tabs" aria-label="Velg kategori">
       ${tabs.map(t=>html`<button key=${t.key} className=${'tab'+(store.filterCat===t.key?' active':'')} onClick=${()=>pickTab(t.key)}>${t.name}<span className="cnt">${t.cnt}</span></button>`)}
     </div>
+    <label className="mobile-category-select">
+      <span>Kategori</span>
+      <select aria-label="Velg kategori" value=${store.filterCat} onChange=${e=>pickTab(e.target.value)}>
+        ${tabs.map(t=>html`<option key=${t.key} value=${t.key}>${t.name} (${t.cnt})</option>`)}
+      </select>
+    </label>
     <div className="dex-search-row">
       <div className="search">🔎<input type="search" placeholder="Søk etter art, sted eller kommentar …" aria-label="Søk i FiskeDex" value=${store.q} onChange=${e=>update(s=>{s.q=e.target.value.trim().toLowerCase();})}/></div>
       <button className=${'chip filter-toggle'+(store.dexFiltersOpen?' active':'')} aria-expanded=${store.dexFiltersOpen?'true':'false'} onClick=${()=>update(s=>{s.dexFiltersOpen=!s.dexFiltersOpen;})}>☷ Filter${activeFilters ? ' ('+activeFilters+')' : ''}</button>
