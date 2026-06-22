@@ -1,24 +1,30 @@
-const CACHE='fiskedex-react-v21';
-const ASSETS=['/','/index.html','/manifest.webmanifest',
- '/css/theme.css','/css/components.css',
- '/js/app.js','/js/config.js','/js/data.js','/js/db.js','/js/silhouettes.js','/js/species-info.js','/js/store.js','/js/utils.js','/js/weather.js',
- '/js/components/dex-grid.js','/js/components/detail-modal.js','/js/components/views.js','/js/components/modals.js',
- '/img/forside.jpg','/img/kat-f.jpg','/img/kat-k.jpg','/img/kat-b.jpg','/img/kat-h.jpg','/img/kat-m.jpg',
- '/img/icon-192.png','/img/icon-512.png'];
-self.addEventListener('install',e=>{
-  e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting()));
-});
-self.addEventListener('activate',e=>{
-  e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));
-});
-self.addEventListener('fetch',e=>{
-  const u=new URL(e.request.url);
-  if(u.origin!==location.origin) return; // Supabase/Vue/Leaflet gaar rett paa nett
-  e.respondWith(
-    fetch(e.request).then(r=>{
-      const cp=r.clone();
-      caches.open(CACHE).then(c=>c.put(e.request,cp));
-      return r;
-    }).catch(()=>caches.match(e.request).then(m=>m||caches.match('/index.html')))
-  );
-});
+-- FiskeDex v22 – profilbilder for fiskere
+-- Kjør denne filen i Supabase SQL Editor hvis du allerede har kjørt v17/v18-SQL.
+-- Den er trygg å kjøre flere ganger.
+
+alter table public.members add column if not exists profile_photo text;
+alter table public.members enable row level security;
+
+grant usage on schema public to anon, authenticated;
+grant select on public.members to anon, authenticated;
+grant update on public.members to authenticated;
+
+-- Legg bare til FiskeDex-policyene dersom de ikke finnes fra før.
+-- Hvis dere allerede har kjørt den komplette FiskeDex-SQL-en, endres ingenting her.
+do $$ begin
+  if not exists (
+    select 1 from pg_policies
+    where schemaname='public' and tablename='members' and policyname='fiskedex_read_members'
+  ) then
+    create policy "fiskedex_read_members" on public.members
+      for select to anon, authenticated using (true);
+  end if;
+
+  if not exists (
+    select 1 from pg_policies
+    where schemaname='public' and tablename='members' and policyname='fiskedex_update_members'
+  ) then
+    create policy "fiskedex_update_members" on public.members
+      for update to authenticated using (true) with check (true);
+  end if;
+end $$;
