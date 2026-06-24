@@ -242,16 +242,21 @@ export function RegisterCatchModal(){
   function openMap(){
     if(typeof L==='undefined'){ toast('Kartet fikk ikke lastet – sjekk nettet.'); return; }
     setPickOpen(true);
-    setTimeout(()=>{
+    // Vent til kart-dialogen faktisk er tegnet før Leaflet opprettes.
+    // Dette er ekstra viktig på mobil der hurtigregistreringen fortsatt ligger bak.
+    requestAnimationFrame(()=>setTimeout(()=>{
+      const mapNode = document.getElementById('quickMapPick');
+      if(!mapNode){ toast('Kartet kunne ikke åpnes – prøv igjen.'); return; }
       if(!pickMap.current){
-        pickMap.current = L.map('quickMapPick').setView(position ? [position.lat,position.lng] : KARMOY, position ? 14 : 10);
+        pickMap.current = L.map(mapNode, {zoomControl:true}).setView(position ? [position.lat,position.lng] : KARMOY, position ? 14 : 10);
         L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(pickMap.current);
         pickMap.current.on('click', e=>putMarker({lat:e.latlng.lat,lng:e.latlng.lng}));
-      } else pickMap.current.invalidateSize();
+      }
       picked.current = position ? {...position} : null;
       if(picked.current) putMarker(picked.current, 14);
-      setTimeout(()=>pickMap.current && pickMap.current.invalidateSize(), 100);
-    }, 50);
+      // Leaflet må måle størrelsen etter at dialogen er synlig.
+      [0,120,280].forEach(delay=>setTimeout(()=>pickMap.current && pickMap.current.invalidateSize(), delay));
+    }, 40));
   }
 
   function closeMap(){

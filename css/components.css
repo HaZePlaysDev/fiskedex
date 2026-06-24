@@ -249,12 +249,20 @@ button:disabled{opacity:.6;cursor:wait}
 .form-hint{
   margin-top:6px;font-size:12.5px;color:var(--boye);font-weight:700;
 }
+/* v27: Kartvelgeren må ligge over «Registrer fangst»-modalen.
+   I v26 lå den under hurtigregistreringen (z-index 140 vs. 155), så kartet
+   ble åpnet, men kunne verken sees eller trykkes på. */
 .map-picker-overlay{
-  z-index:140!important;
+  z-index:260!important;
   align-items:center!important;
   justify-content:center!important;
   padding:10px!important;
   overflow:hidden!important;
+  overscroll-behavior:contain;
+}
+.map-picker-overlay .map-picker-modal{
+  position:relative;
+  z-index:261;
 }
 .map-picker-modal{
   max-width:720px!important;
@@ -281,8 +289,9 @@ button:disabled{opacity:.6;cursor:wait}
   .map-picker-overlay{padding:8px!important;align-items:center!important;}
   .map-picker-modal{width:calc(100vw - 16px)!important;max-height:calc(100vh - 24px)!important;}
   .map-picker-body{padding:10px!important;}
-  .map-pick-box{height:58vh;min-height:320px;}
-  .map-picker-body .modal-actions{gap:8px;}
+  .map-pick-box{height:50vh;min-height:270px;}
+  .map-picker-body .modal-actions{gap:8px;display:grid;grid-template-columns:1fr 1fr;}
+  .map-picker-body .modal-actions .btn:last-child{grid-column:1/-1;}
   .map-picker-body .btn{padding:10px 13px;font-size:13.5px;}
 }
 
