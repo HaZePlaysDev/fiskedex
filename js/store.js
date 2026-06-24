@@ -136,8 +136,15 @@ export function nextId(cat){
   const n = (nums.length ? Math.max(...nums) : 0) + 1;
   return cat + String(n).padStart(3,'0');
 }
-function hasGpsEntry(c){
-  return !!c && Number.isFinite(Number(c.lat)) && Number.isFinite(Number(c.lng));
+// En fangst kan ha manglende GPS i databasen. Da kan Supabase/JS ende opp
+// med å tolke tomme verdier som 0,0. 0,0 er ute i Atlanterhavet og skal aldri
+// vises som en fangstposisjon i FiskeDex.
+export function hasValidGps(c){
+  if(!c || c.lat===null || c.lat===undefined || c.lat==='' || c.lng===null || c.lng===undefined || c.lng==='') return false;
+  const lat=Number(c.lat), lng=Number(c.lng);
+  if(!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+  if(lat===0 && lng===0) return false;
+  return lat>=-90 && lat<=90 && lng>=-180 && lng<=180;
 }
 
 function catchIsSpeciesRecord(s, member){
@@ -166,7 +173,7 @@ export function visibleSpecies(){
     if(store.filterMine){
       if(!store.member || !(s.catches && s.catches[store.member])) return false;
     }
-    if(store.filterGps && !scope.some(m=>hasGpsEntry(s.catches && s.catches[m]))) return false;
+    if(store.filterGps && !scope.some(m=>hasValidGps(s.catches && s.catches[m]))) return false;
     if(store.filterRecord && !scope.some(m=>catchIsSpeciesRecord(s,m))) return false;
     if(store.q){
       const q = store.q.toLowerCase();

@@ -4,6 +4,17 @@ import { SUPABASE_URL, SUPABASE_KEY, GROUP_EMAIL } from './config.js';
 
 export const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+
+// Tom GPS blir noen ganger tolket som 0,0. Ikke lagre det som en ekte fangstposisjon.
+function cleanPosition(lat, lng){
+  if(lat===null || lat===undefined || lat==='' || lng===null || lng===undefined || lng==='') return {lat:null,lng:null};
+  const latitude=Number(lat), longitude=Number(lng);
+  if(!Number.isFinite(latitude) || !Number.isFinite(longitude)) return {lat:null,lng:null};
+  if(latitude===0 && longitude===0) return {lat:null,lng:null};
+  if(latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) return {lat:null,lng:null};
+  return {lat:latitude,lng:longitude};
+}
+
 /* ---------- innlogging ---------- */
 export async function hasSession(){
   try{
@@ -49,10 +60,11 @@ export async function seedSpecies(rows){
 
 /* ---------- skriving ---------- */
 export async function upsertCatch(id, mem, e){
+  const position = cleanPosition(e.lat, e.lng);
   const row = {
     species_id:id, member:mem, dato:e.dato||'', sted:e.sted||'',
     lengde:e.lengde||'', vekt:e.vekt||'', kommentar:e.kommentar||'',
-    has_photo:!!e.hasPhoto, lat:(e.lat!=null?e.lat:null), lng:(e.lng!=null?e.lng:null),
+    has_photo:!!e.hasPhoto, lat:position.lat, lng:position.lng,
     weather_summary:e.weather||'', tide_summary:e.tide||'', reactions:e.reactions||{},
   };
   let r = await sb.from('catches').upsert(row);

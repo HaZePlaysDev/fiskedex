@@ -1,6 +1,6 @@
 // Visninger: dashboard, toppliste, rekorder, fangstkart, fangstside og gjesteside
 /* global React, htm, L */
-import { store, update, useStore, toast, catchers, memberName, catOrder, canEdit, latestCatch } from '../store.js';
+import { store, update, useStore, toast, catchers, memberName, catOrder, canEdit, latestCatch, hasValidGps } from '../store.js';
 import { CATS } from '../data.js';
 import { FELLES, KARMOY } from '../config.js';
 import * as db from '../db.js';
@@ -106,7 +106,7 @@ export function DashboardView(){
   const caught = store.species.filter(s=>catchers(s).length>0).length;
   const pct = tot ? Math.round(caught*100/tot) : 0;
   const mystery = mysterySpecies();
-  const geoCount = rows.filter(r=>r.catch.lat!=null && r.catch.lng!=null).length;
+  const geoCount = rows.filter(r=>hasValidGps(r.catch)).length;
   const photoCount = rows.filter(r=>r.catch.hasPhoto).length;
   const progress = catProgressRows();
   const next = [...progress].sort((a,b)=>a.pct-b.pct || a.caught-b.caught)[0] || null;
@@ -369,7 +369,7 @@ export function RecordsView(){
         <div className="record-special-lines">
           <button onClick=${()=>topPioneer && update(s=>{s.member=topPioneer[0];s.profileMember=topPioneer[0];s.view='profiles';})}><span>🆕</span><div><b>Pionér</b><small>${topPioneer ? `${memberName(topPioneer[0])} var først på ${topPioneer[1]} arter` : 'Mangler datagrunnlag'}</small></div></button>
           <button onClick=${()=>mythicalLeaders[0] && update(s=>{s.member=mythicalLeaders[0].m;s.profileMember=mythicalLeaders[0].m;s.view='profiles';})}><span>✨</span><div><b>Mythical hunter</b><small>${mythicalLeaders[0]?.count ? `${memberName(mythicalLeaders[0].m)} har ${mythicalLeaders[0].count} encounters` : 'Ingen encounters ennå'}</small></div></button>
-          <div><span>📍</span><div><b>Kartlagt</b><small>${rows.filter(r=>r.catch.lat!=null && r.catch.lng!=null).length} fangster har GPS-posisjon</small></div></div>
+          <div><span>📍</span><div><b>Kartlagt</b><small>${rows.filter(r=>hasValidGps(r.catch)).length} fangster har GPS-posisjon</small></div></div>
         </div>
       </div>
     </section>
@@ -435,7 +435,7 @@ export function MapView(){
     if(mapSeason!=='ALL' && seasonFor(date)!==mapSeason) return false;
     if(mapYear!=='ALL' && !date.startsWith(mapYear)) return false;
     if(onlyPhoto && !r.catch.hasPhoto) return false;
-    return Number.isFinite(Number(r.catch.lat)) && Number.isFinite(Number(r.catch.lng));
+    return hasValidGps(r.catch);
   });
   const dataKey=rows.map(r=>[r.species.id,r.member,r.catch.lat,r.catch.lng,r.catch.dato,r.catch.hasPhoto].join('|')).join('~');
 
@@ -546,7 +546,7 @@ export function ProfileView(){
   const rank=Math.max(0,leaderboard.findIndex(r=>r.m===selected))+1;
   const stats=leaderboard.find(r=>r.m===selected) || {count:0,reactions:0};
   const photos=rows.filter(r=>r.catch.hasPhoto).length;
-  const positions=rows.filter(r=>r.catch.lat!=null && r.catch.lng!=null).length;
+  const positions=rows.filter(r=>hasValidGps(r.catch)).length;
   const mythical=rows.filter(r=>r.species.cat==='M').length;
   let heaviest=null,longest=null;
   for(const r of rows){

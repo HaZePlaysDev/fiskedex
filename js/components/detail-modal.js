@@ -1,6 +1,6 @@
 // Artskortet: fangstregistrering per fisker, bilder, galleri, silhuett og posisjon
 /* global React, htm, L */
-import { store, update, useStore, sp, toast, catchers, memberName, canEdit } from '../store.js';
+import { store, update, useStore, sp, toast, catchers, memberName, canEdit, hasValidGps } from '../store.js';
 import { ARTSINFO } from '../data.js';
 import { fetchAutoSpeciesInfo } from '../species-info.js';
 import { FELLES, KARMOY } from '../config.js';
@@ -62,7 +62,7 @@ export function DetailModal(){
       dato: c?c.dato:'', sted: c?c.sted:'', lengde: c?c.lengde:'',
       vekt: c?c.vekt:'', kommentar: c?c.kommentar:'',
     });
-    setCurPos((c && c.lat!=null && c.lng!=null) ? {lat:c.lat, lng:c.lng} : null);
+    setCurPos(hasValidGps(c) ? {lat:Number(c.lat), lng:Number(c.lng)} : null);
     setPhotoUrl(undefined);
     setGallery([]);
     setGalleryRows([]);
