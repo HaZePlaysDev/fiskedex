@@ -36,11 +36,17 @@ export async function fetchAll(){
     sb.from('species').select('*'),
     sb.from('catches').select('*'),
   ]);
+  // v28: hver fisk kan ha flere fangster. Tabellen er valgfri helt til
+  // migreringen er kjørt, slik at gamle installasjoner fortsatt åpner.
+  let ce = await sb.from('catch_entries').select('*').order('created_at', {ascending:false});
+  if(ce.error && /(catch_entries|does not exist|schema cache|PGRST205)/i.test(String(ce.error.message||''))){
+    ce = { data: [] };
+  }
   let me = await sb.from('members').select('name,profile_photo').order('name');
   if(me.error && /profile_photo/i.test(String(me.error.message||''))){
     me = await sb.from('members').select('name').order('name');
   }
-  if(sp.error || me.error || ca.error) throw (sp.error || me.error || ca.error);
+  if(sp.error || me.error || ca.error || ce.error) throw (sp.error || me.error || ca.error || ce.error);
 
   // Hent småbilder samtidig med resten. Dette gjør at artskortene får bilder med en gang
   // når siden åpnes, i stedet for at hvert kort må vente på eget Supabase-kall.
@@ -50,7 +56,7 @@ export async function fetchAll(){
   }
   if(ph.error) ph = { data: [] };
 
-  return { speciesRows: sp.data, memberRows: me.data, catchRows: ca.data, photoRows: ph.data || [] };
+  return { speciesRows: sp.data, memberRows: me.data, catchRows: ca.data, catchEntryRows: ce.data || [], photoRows: ph.data || [] };
 }
 export async function seedSpecies(rows){
   const r = await sb.from('species').insert(rows).select();
@@ -74,9 +80,44 @@ export async function upsertCatch(id, mem, e){
   }
   return !r.error;
 }
+
+// v28: En fangstlogg-rad per faktisk fangst. Den gamle catches-tabellen beholdes
+// som en rask oppsummering/beste fangst for Dex-kort, statistikk og bakoverkompatibilitet.
+export async function addCatchEntry(id, mem, e, photo={}){
+  const position = cleanPosition(e.lat, e.lng);
+  const row = {
+    species_id:id, member:mem,
+    dato:e.dato||'', sted:e.sted||'', lengde:e.lengde||'', vekt:e.vekt||'',
+    kommentar:e.kommentar||'', has_photo:!!e.hasPhoto,
+    lat:position.lat, lng:position.lng,
+    weather_summary:e.weather||'', tide_summary:e.tide||'', reactions:e.reactions||{},
+    photo_data:photo.full || null, photo_thumb:photo.thumb || photo.full || null,
+  };
+  const r = await sb.from('catch_entries').insert(row).select().single();
+  return r.error ? {ok:false, error:r.error, data:null} : {ok:true, error:null, data:r.data};
+}
+
+export async function updateCatchEntry(entryId, e){
+  const position = cleanPosition(e.lat, e.lng);
+  const row = {
+    dato:e.dato||'', sted:e.sted||'', lengde:e.lengde||'', vekt:e.vekt||'',
+    kommentar:e.kommentar||'', has_photo:!!e.hasPhoto,
+    lat:position.lat, lng:position.lng,
+    weather_summary:e.weather||'', tide_summary:e.tide||'', reactions:e.reactions||{},
+  };
+  const r = await sb.from('catch_entries').update(row).eq('id',entryId).select().single();
+  return r.error ? {ok:false, error:r.error, data:null} : {ok:true, error:null, data:r.data};
+}
+
+export async function deleteCatchEntry(entryId){
+  const r = await sb.from('catch_entries').delete().eq('id',entryId);
+  return !r.error;
+}
+
 export async function removeCatch(id, mem){
   await sb.from('photos').delete().match({species_id:id, member:mem});
   await sb.from('catch_gallery').delete().match({species_id:id, member:mem});
+  await sb.from('catch_entries').delete().match({species_id:id, member:mem});
   const r = await sb.from('catches').delete().match({species_id:id, member:mem});
   photoCache.delete(id+':'+mem); thumbCache.delete(id+':'+mem);
   return !r.error;
@@ -115,6 +156,7 @@ export async function updateSpeciesOrder(rows){
 }
 export async function deleteSpeciesRow(id){
   await sb.from('photos').delete().eq('species_id', id);
+  await sb.from('catch_entries').delete().eq('species_id', id);
   await sb.from('catches').delete().eq('species_id', id);
   const r = await sb.from('species').delete().eq('id', id);
   return !r.error;
@@ -136,6 +178,7 @@ export async function deleteMemberProfilePhoto(name){
 }
 export async function removeMemberRows(name){
   await sb.from('photos').delete().eq('member', name);
+  await sb.from('catch_entries').delete().eq('member', name);
   await sb.from('catches').delete().eq('member', name);
   const r = await sb.from('members').delete().eq('name', name);
   for(const k of [...photoCache.keys()]) if(k.endsWith(':'+name)) photoCache.delete(k);
@@ -244,6 +287,7 @@ export function subscribeRealtime(onChange){
       .on('postgres_changes',{event:'*',schema:'public',table:'species'},onChange)
       .on('postgres_changes',{event:'*',schema:'public',table:'members'},onChange)
       .on('postgres_changes',{event:'*',schema:'public',table:'catch_gallery'},onChange)
+      .on('postgres_changes',{event:'*',schema:'public',table:'catch_entries'},onChange)
       .subscribe();
   }catch(e){ console.warn('realtime utilgjengelig', e); }
 }

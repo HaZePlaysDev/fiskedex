@@ -1,6 +1,6 @@
 // Småmodaler: innlogging, ny art, ny fisker
 /* global React, htm */
-import { store, update, useStore, toast, nextId, canEdit } from '../store.js';
+import { store, update, useStore, toast, nextId, canEdit , isBetterCatch } from '../store.js';
 import { CATS } from '../data.js';
 import { fetchAutoSpeciesInfo } from '../species-info.js';
 import { FELLES, KARMOY } from '../config.js';
@@ -202,8 +202,8 @@ export function RegisterCatchModal(){
 
   useEffect(()=>{
     if(!open) return;
-    setFisher(store.member || '');
-    setSpeciesId('');
+    setFisher(store.catchPresetMember || store.member || '');
+    setSpeciesId(store.catchPresetSpeciesId || '');
     setForm({dato:today(), sted:'', lengde:'', vekt:'', kommentar:''});
     setPosition(null);
     setFile(null);
@@ -218,7 +218,7 @@ export function RegisterCatchModal(){
   const close = ()=>{
     setPickOpen(false);
     if(pickMap.current){ pickMap.current.remove(); pickMap.current=null; pickMarker.current=null; }
-    update(s=>{ s.catchOpen = false; });
+    update(s=>{ s.catchOpen = false; s.catchPresetSpeciesId=''; s.catchPresetMember=''; });
   };
 
   function useGps(){
@@ -285,15 +285,12 @@ export function RegisterCatchModal(){
     if(saving) return;
     setSaving(true);
     try{
-      const previous = existing || {};
-      let hasPhoto = !!previous.hasPhoto;
+      const previous = existing || null;
+      let full=null, thumb=null;
       if(file){
         const compressed = await compressImage(file);
-        const full = typeof compressed === 'string' ? compressed : compressed.full;
-        const thumb = typeof compressed === 'string' ? compressed : (compressed.thumb || compressed.full);
-        const savedPhoto = await db.savePhoto(selected.id, fisher, full, thumb);
-        if(!savedPhoto) throw new Error('photo');
-        hasPhoto = true;
+        full = typeof compressed === 'string' ? compressed : compressed.full;
+        thumb = typeof compressed === 'string' ? compressed : (compressed.thumb || compressed.full);
       }
       const entry = {
         dato: form.dato || today(),
@@ -301,27 +298,50 @@ export function RegisterCatchModal(){
         lengde: form.lengde.trim(),
         vekt: form.vekt.trim(),
         kommentar: form.kommentar.trim(),
-        hasPhoto,
+        hasPhoto: !!full,
         lat: position ? position.lat : null,
         lng: position ? position.lng : null,
-        weather: previous.weather || store.weather.replace(/<[^>]+>/g,''),
-        tide: previous.tide || '',
-        reactions: previous.reactions || {},
-        created: previous.created || new Date().toISOString(),
+        weather: store.weather.replace(/<[^>]+>/g,''),
+        tide: '', reactions: {},
       };
-      const ok = await db.upsertCatch(selected.id, fisher, entry);
-      if(!ok) throw new Error('catch');
-      update(s=>{
-        const target = s.species.find(x=>x.id===selected.id);
-        if(target){ target.catches = target.catches || {}; target.catches[fisher] = entry; }
-        s.member = fisher;
-        s.detailId = selected.id;
-        s.catchOpen = false;
+      const saved = await db.addCatchEntry(selected.id, fisher, entry, {full,thumb});
+      if(!saved.ok) throw Object.assign(new Error('entry'), {cause:saved.error});
+      const savedEntry = {
+        ...entry, id:saved.data.id, entryId:saved.data.id,
+        created:saved.data.created_at || new Date().toISOString(),
+        photoData:full, photoThumb:thumb || full,
+      };
+      const becomesBest = !previous || isBetterCatch(savedEntry, previous);
+      const updateCover = !!full && (becomesBest || !previous || !previous.hasPhoto);
+      let summary = previous;
+      if(becomesBest){
+        summary = {...savedEntry, hasPhoto: updateCover || !!(previous && previous.hasPhoto)};
+        const ok = await db.upsertCatch(selected.id, fisher, summary);
+        if(!ok) throw new Error('catch');
+      }
+      if(updateCover && !(await db.savePhoto(selected.id, fisher, full, thumb))){ throw new Error('photo'); }
+      update(st=>{
+        const target = st.species.find(x=>x.id===selected.id);
+        if(target){
+          target.catchEntries = target.catchEntries || {};
+          (target.catchEntries[fisher] = target.catchEntries[fisher] || []).unshift(savedEntry);
+          target.catches = target.catches || {};
+          if(becomesBest) target.catches[fisher] = summary;
+          else if(!target.catches[fisher]) target.catches[fisher] = savedEntry;
+          if(updateCover && target.catches[fisher]) target.catches[fisher].hasPhoto = true;
+        }
+        st.member = fisher;
+        st.detailId = selected.id;
+        st.catchOpen = false;
+        st.catchPresetSpeciesId = '';
+        st.catchPresetMember = '';
       });
-      toast(`${selected.name} registrert på ${fisher} 🎉`);
+      toast(becomesBest ? `${selected.name} registrert – ny største fangst på Dexen! 🏆` : `${selected.name} lagt til i fangstloggen 🎣`);
     }catch(err){
       console.error(err);
-      toast(err && err.message==='photo' ? 'Bildet kunne ikke lagres.' : 'Kunne ikke lagre fangsten – prøv igjen.');
+      const msg = String((err && err.cause && err.cause.message) || (err && err.message) || '');
+      if(/catch_entries|schema cache|PGRST205|does not exist/i.test(msg)) toast('Kjør v28-SQL-filen i Supabase først, så kan dere lagre flere fangster.');
+      else toast(err && err.message==='photo' ? 'Bildet kunne ikke lagres.' : 'Kunne ikke lagre fangsten – prøv igjen.');
     }finally{ setSaving(false); }
   }
 
@@ -350,7 +370,7 @@ export function RegisterCatchModal(){
               </optgroup>`)}
             </select>
           </div>
-          ${existing && html`<div className="quick-catch-warning">ℹ️ ${fisher} har allerede en registrering på ${selected.name}. Når du lagrer, oppdateres den eksisterende registreringen.</div>`}
+          ${existing && html`<div className="quick-catch-warning">ℹ️ ${fisher} har allerede fanget ${selected.name}. Dette blir lagt til som en <b>ny fangst</b>; den største fisken brukes som Dex-bilde og rekord.</div>`}
 
           <div className="form-grid">
             <div className="field"><label>Dato</label><input type="date" value=${form.dato} onChange=${e=>setForm({...form,dato:e.target.value})}/></div>

@@ -1,0 +1,9 @@
+FiskeDex v26 – Kart uten 0,0
+
+Hva er fikset:
+- Fangster uten valgt GPS-posisjon vises ikke på kartet.
+- Fangster med 0,0 (feilposisjon ute i Atlanterhavet) blir ignorert av kart og heatmap.
+- Nye fangster uten GPS lagres med tom posisjon i stedet for 0,0.
+- GPS-tellere på dashboard/profil teller bare gyldige posisjoner.
+
+Ingen ny SQL trengs. Last opp alle filene i denne pakken.

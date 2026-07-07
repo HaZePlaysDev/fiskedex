@@ -1,6 +1,6 @@
 // Dex-visningen: kategoribannere + artskort
 /* global React, htm */
-import { store, update, useStore, visibleSpecies, isCaught, catchers, memberName, catOrder, canEdit, toast, reload } from '../store.js';
+import { store, update, useStore, visibleSpecies, isCaught, catchers, memberName, catOrder, canEdit, toast, reload, isBetterCatch } from '../store.js';
 import { CATS, COVERS } from '../data.js';
 import { silFor } from '../silhouettes.js';
 import { cachedPhotoThumb, loadPhotoThumb, updateSpeciesOrder } from '../db.js';
@@ -237,9 +237,14 @@ export function DexGrid(){
   useEffect(()=>{
     let alive = true;
     for(const s of list){
-      const who = catchers(s);
+      const who = catchers(s).slice().sort((a,b)=>{
+        const ca=s.catches[a], cb=s.catches[b];
+        return isBetterCatch(ca,cb) ? -1 : (isBetterCatch(cb,ca) ? 1 : 0);
+      });
       let candidates = [];
+      // I valgt fisker-visning brukes alltid den fiskerens største fangst først.
       if(store.member && (s.catches||{})[store.member]) candidates.push(store.member);
+      // I Alle-visning velges bildet til den største registrerte fisken først.
       candidates.push(...who.filter(m=>!candidates.includes(m) && s.catches[m].hasPhoto));
       candidates.push(...who.filter(m=>!candidates.includes(m)));
 

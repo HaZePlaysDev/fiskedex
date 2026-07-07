@@ -1,0 +1,3 @@
+FiskeDex v25
+
+Fikser mobil-Dex: Kategorien ligger nå i en enkel nedtrekksmeny på mobil, og søk + Filter holder seg alltid innenfor skjermen. Ingen ny SQL trengs.

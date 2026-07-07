@@ -1,0 +1,3 @@
+FiskeDex v27
+
+Fikser kart/GPS i «Registrer fangst». Kartvelgeren åpner nå oppå fangstskjemaet på mobil og PC. Ingen ny SQL trengs.

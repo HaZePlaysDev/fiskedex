@@ -715,3 +715,21 @@ header{width:100%!important;max-width:none!important}
   .dex-search-row .filter-toggle{padding:8px 9px!important;font-size:11px}
   .dex-search-row .search{padding:9px 10px!important}
 }
+
+
+/* v28 – flere fangster per art */
+.detail-section-title-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.catch-history-list{display:grid;gap:9px;margin-top:12px}
+.catch-history-row{display:grid;grid-template-columns:56px minmax(0,1fr) auto;align-items:center;gap:10px;padding:8px;border:1px solid rgba(18,43,54,.12);background:#fff;border-radius:14px}
+.catch-history-photo{width:56px;height:56px;border:0;padding:0;border-radius:10px;overflow:hidden;background:#e8eff1;display:grid;place-items:center;font-size:22px;cursor:pointer}
+.catch-history-photo img{width:100%;height:100%;object-fit:cover;display:block}
+.catch-history-info{min-width:0;display:grid;gap:2px;text-align:left}
+.catch-history-info b{font-size:14px;color:var(--blekk)}
+.catch-history-info span,.catch-history-info small{font-size:12px;color:var(--blek);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.catch-history-delete{width:30px;height:30px;border:1px solid rgba(176,45,29,.25);background:#fff;color:#b02d1d;border-radius:50%;font-size:20px;line-height:1;cursor:pointer}
+.catch-history-delete:hover{background:#b02d1d;color:#fff}
+@media(max-width:600px){
+  .catch-history-row{grid-template-columns:50px minmax(0,1fr) auto;padding:7px}
+  .catch-history-photo{width:50px;height:50px}
+  .detail-section-title-row .btn{width:auto;min-height:38px}
+}

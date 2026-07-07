@@ -1,6 +1,6 @@
 // Artskortet: fangstregistrering per fisker, bilder, galleri, silhuett og posisjon
 /* global React, htm, L */
-import { store, update, useStore, sp, toast, catchers, memberName, canEdit, hasValidGps } from '../store.js';
+import { store, update, useStore, sp, toast, catchers, memberName, canEdit, hasValidGps, catchEntriesFor, allCatchEntriesForSpecies, bestCatch } from '../store.js';
 import { ARTSINFO } from '../data.js';
 import { fetchAutoSpeciesInfo } from '../species-info.js';
 import { FELLES, KARMOY } from '../config.js';
@@ -37,6 +37,11 @@ export function DetailModal(){
   const fisherRef = useRef(fisher); fisherRef.current = fisher;
 
   const entry = ()=> (s && s.catches && s.catches[fisher]) || null;
+  const historyRows = ()=>{
+    if(!s) return [];
+    const rows = fisher ? catchEntriesFor(s,fisher).map(c=>({member:fisher, catch:c})) : allCatchEntriesForSpecies(s);
+    return rows.slice().sort((a,b)=>String(b.catch.created||b.catch.dato||'').localeCompare(String(a.catch.created||a.catch.dato||'')));
+  };
 
   // når kortet åpnes: ikke velg første fisker automatisk.
   // Da slipper dere at fangster havner på første navn i alfabetet hvis man glemmer å bytte.
@@ -137,24 +142,41 @@ export function DetailModal(){
     if(!editable){ readonlyToast(); return; }
     if(!validFisherForEdit()) return;
     const mem = fisher;
-    let ok;
+    let ok=false;
     if(caught){
       const prev = (s.catches && s.catches[mem]) || {};
       const e = {
+        ...prev,
         dato:form.dato, sted:form.sted.trim(), lengde:form.lengde.trim(),
         vekt:form.vekt.trim(), kommentar:form.kommentar.trim(),
         hasPhoto:!!prev.hasPhoto, created:prev.created||'',
         lat:(curPos?curPos.lat:null), lng:(curPos?curPos.lng:null),
         weather:prev.weather || store.weather.replace(/<[^>]+>/g,''), tide:prev.tide || '', reactions:prev.reactions || {},
       };
-      update(()=>{ s.catches = s.catches||{}; s.catches[mem] = e; });
-      ok = await db.upsertCatch(s.id, mem, e);
+      // Etter v28 peker oppsummeringen på en konkret fangst i fangstloggen.
+      // Da oppdaterer vi begge steder så historikken og Dex-kortet holder følge.
+      if(prev.entryId){
+        const result=await db.updateCatchEntry(prev.entryId,e);
+        if(result.ok){
+          update(()=>{
+            const list=(s.catchEntries && s.catchEntries[mem]) || [];
+            if(s.catchEntries) s.catchEntries[mem]=list.map(row=>String(row.entryId||row.id)===String(prev.entryId) ? {...e, id:prev.entryId, entryId:prev.entryId, photoData:row.photoData, photoThumb:row.photoThumb} : row);
+            const best=bestCatch((s.catchEntries&&s.catchEntries[mem])||[]);
+            s.catches=s.catches||{};
+            if(best) s.catches[mem]=best;
+          });
+          ok=await db.upsertCatch(s.id,mem,s.catches[mem]);
+        }
+      } else {
+        update(()=>{ s.catches = s.catches||{}; s.catches[mem] = e; });
+        ok = await db.upsertCatch(s.id, mem, e);
+      }
     } else {
-      update(()=>{ if(s.catches) delete s.catches[mem]; });
+      update(()=>{ if(s.catches) delete s.catches[mem]; if(s.catchEntries) delete s.catchEntries[mem]; });
       ok = await db.removeCatch(s.id, mem);
     }
     if(ok){ setSaveMsg(true); setTimeout(()=>setSaveMsg(false), 1800); }
-    else toast('Kunne ikke lagre \u2013 prøv igjen');
+    else toast('Kunne ikke lagre – prøv igjen');
   }
 
   async function saveInfo(){
@@ -369,6 +391,44 @@ export function DetailModal(){
 
   const realOptions = [...store.members, ...catchers(s).filter(m=>m!==FELLES)];
   const fisherOptions = [...new Set([...realOptions, ...(s.catches && s.catches[FELLES] ? [FELLES] : [])])];
+  const catchHistory = historyRows();
+  function addAnotherCatch(){
+    if(!editable){ readonlyToast(); return; }
+    update(st=>{
+      st.catchPresetSpeciesId=s.id;
+      st.catchPresetMember=(fisher && fisher!==FELLES) ? fisher : (st.member || '');
+      st.catchOpen=true;
+      st.detailId=null;
+    });
+  }
+  async function deleteHistoryEntry(row){
+    if(!editable || !row || !row.catch || !row.catch.entryId) return;
+    if(!confirm('Slette denne fangsten fra loggen?')) return;
+    const ok=await db.deleteCatchEntry(row.catch.entryId);
+    if(!ok){ toast('Kunne ikke slette fangsten.'); return; }
+    const target=store.species.find(x=>x.id===s.id);
+    if(!target) return;
+    const list=((target.catchEntries && target.catchEntries[row.member]) || []).filter(x=>String(x.entryId||x.id)!==String(row.catch.entryId));
+    const best=bestCatch(list);
+    if(best){
+      await db.upsertCatch(s.id,row.member,best);
+      if(best.photoData || best.photoThumb) await db.savePhoto(s.id,row.member,best.photoData||best.photoThumb,best.photoThumb||best.photoData);
+      else await db.deletePhoto(s.id,row.member);
+    }else{
+      // Siste fangst for denne arten/fiskeren ble slettet.
+      await db.removeCatch(s.id,row.member);
+    }
+    update(st=>{
+      const target2=st.species.find(x=>x.id===s.id);
+      if(!target2) return;
+      target2.catchEntries=target2.catchEntries||{};
+      target2.catchEntries[row.member]=list;
+      target2.catches=target2.catches||{};
+      if(best) target2.catches[row.member]=best;
+      else delete target2.catches[row.member];
+    });
+    toast('Fangsten er slettet fra loggen.');
+  }
 
   return html`<${React.Fragment}>
   <div className="overlay open" onClick=${e=>{ if(e.target===e.currentTarget) close(); }}>
@@ -449,7 +509,23 @@ export function DetailModal(){
           </div>`}
         </section>
 
-        <section className="detail-section"><h3>Fangst</h3>
+        <section className="detail-section catch-history-section">
+          <div className="detail-section-title-row"><h3>Fangstlogg</h3>${canWriteThisCatch && html`<button className="btn primary" style=${smallBtn} onClick=${addAnotherCatch}>➕ Ny fangst</button>`}</div>
+          <p className="muted" style=${{marginTop:'0'}}>Dere kan registrere flere fangster av samme art. Den tyngste/lengste fangsten brukes på Dex-kortet.</p>
+          ${catchHistory.length ? html`<div className="catch-history-list">
+            ${catchHistory.map(row=>{
+              const c=row.catch;
+              const photo=c.photoThumb || c.photoData || null;
+              return html`<div key=${String(c.entryId||c.id)} className="catch-history-row">
+                ${photo ? html`<button className="catch-history-photo" onClick=${()=>update(st=>{st.lightboxUrl=c.photoData||c.photoThumb;})}><img src=${photo} alt="Fangstbilde"/></button>` : html`<div className="catch-history-photo empty">🐟</div>`}
+                <div className="catch-history-info"><b>${memberName(row.member)}</b><span>${[c.dato,c.sted].filter(Boolean).join(' · ') || 'Dato/sted ikke lagt inn'}</span><small>${[c.vekt,c.lengde].filter(Boolean).join(' · ') || 'Mål ikke lagt inn'}${c.kommentar ? ' · '+c.kommentar : ''}</small></div>
+                ${canWriteThisCatch && row.member===fisher && c.entryId && html`<button className="catch-history-delete" title="Slett denne fangsten" onClick=${()=>deleteHistoryEntry(row)}>×</button>`}
+              </div>`;
+            })}
+          </div>` : html`<p className="muted">Ingen fangster registrert ennå. Bruk «Ny fangst» for å legge inn den første.</p>`}
+        </section>
+
+        <section className="detail-section"><h3>Beste fangst / artsstatus</h3>
         <div className="field" style=${{marginTop:'14px'}}>
           <label>Fisker</label>
           <select value=${fisher} onChange=${e=>setFisher(e.target.value)}>
@@ -504,7 +580,7 @@ export function DetailModal(){
             ${fisher===FELLES && entry() && html`<span className="guest-note">Gammel Felles-fangst: kan slettes, men ikke redigeres.</span>`}
             ${entry() && html`<button className="btn ghost"
                 style=${resetArmed ? {background:'var(--boye)', color:'#fff', borderColor:'var(--boye)'} : null}
-                onClick=${resetCatch}>${resetArmed ? 'Sikker? Trykk igjen' : 'Slett fangst'}</button>`}
+                onClick=${resetCatch}>${resetArmed ? 'Sikker? Trykk igjen' : (catchHistory.length>1 ? 'Slett alle fangster' : 'Slett fangst')}</button>`}
             <button className="btn danger"
                 style=${delArmed ? {background:'var(--stamp)', color:'#fff'} : null}
                 onClick=${delSpecies}>${delArmed ? 'Sikker? Trykk igjen for å slette' : 'Slett art'}</button>`

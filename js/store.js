@@ -32,6 +32,8 @@ export const store = {
   memberOpen: false,
   lightboxUrl: null,
   catchOpen: false,
+  catchPresetSpeciesId: '',
+  catchPresetMember: '',
   profileMember: null,
   // { navn: dataURL }. Holdes separat fra navnene, så gammel data fortsatt virker.
   profilePhotos: {},
@@ -68,7 +70,7 @@ export function toast(msg){
 /* ---------- lasting ---------- */
 export async function reload(quiet){
   try{
-    let { speciesRows, memberRows, catchRows, photoRows } = await db.fetchAll();
+    let { speciesRows, memberRows, catchRows, catchEntryRows, photoRows } = await db.fetchAll();
     if(!speciesRows.length){
       const rows = SEED.map(([id,name])=>({id,name,cat:id[0],custom:false}));
       speciesRows = (await db.seedSpecies(rows)).sort((a,b)=>a.id<b.id?-1:1);
@@ -88,9 +90,34 @@ export async function reload(quiet){
         dato:c.dato||'', sted:c.sted||'', lengde:c.lengde||'', vekt:c.vekt||'',
         kommentar:c.kommentar||'', hasPhoto:!!c.has_photo || photoSet.has(c.species_id + ':' + c.member),
         lat:(c.lat!=null?c.lat:null), lng:(c.lng!=null?c.lng:null), created:c.created_at||'',
-        weather:c.weather_summary||'', tide:c.tide_summary||'',
-        reactions:c.reactions||{},
+        weather:c.weather_summary||'', tide:c.tide_summary||'', reactions:c.reactions||{},
+        entryId:null,
       };
+    }
+
+    // catchEntries inneholder alle enkeltfangster. Etter v28-SQL-en er kjørt,
+    // kopieres også gamle catches hit én gang slik at historikken blir komplett.
+    const entryMap = {};
+    for(const c of (catchEntryRows||[])){
+      const item = {
+        id:c.id, entryId:c.id,
+        dato:c.dato||'', sted:c.sted||'', lengde:c.lengde||'', vekt:c.vekt||'',
+        kommentar:c.kommentar||'',
+        hasPhoto:!!c.has_photo || !!c.photo_data || !!c.photo_thumb,
+        photoData:c.photo_data||null, photoThumb:c.photo_thumb||c.photo_data||null,
+        lat:(c.lat!=null?c.lat:null), lng:(c.lng!=null?c.lng:null), created:c.created_at||'',
+        weather:c.weather_summary||'', tide:c.tide_summary||'', reactions:c.reactions||{},
+      };
+      const bySpecies = entryMap[c.species_id] = entryMap[c.species_id] || {};
+      (bySpecies[c.member] = bySpecies[c.member] || []).push(item);
+    }
+    // La den største fangsten være Dex-oppsummeringen for hver fisker/art.
+    for(const [speciesId, byMember] of Object.entries(entryMap)){
+      cmap[speciesId] = cmap[speciesId] || {};
+      for(const [member, entries] of Object.entries(byMember)){
+        const best = bestCatch(entries);
+        if(best) cmap[speciesId][member] = best;
+      }
     }
     update(s=>{
       const catRank = c => (CATS[c] ? CATS[c].order : 999);
@@ -99,6 +126,7 @@ export async function reload(quiet){
         info:r.info||'', min:r.min||'', fredet:!!r.fredet,
         sort_order: Number.isFinite(Number(r.sort_order)) ? Number(r.sort_order) : i * 10,
         catches:cmap[r.id]||{},
+        catchEntries:entryMap[r.id]||{},
       })).sort((a,b)=>{
         const ca = catRank(a.cat), cb = catRank(b.cat);
         if(ca !== cb) return ca - cb;
@@ -147,16 +175,67 @@ export function hasValidGps(c){
   return lat>=-90 && lat<=90 && lng>=-180 && lng<=180;
 }
 
+
+function numberFromCatch(value){
+  const match = String(value||'').replace(',', '.').match(/[0-9]+(?:\.[0-9]+)?/);
+  return match ? Number(match[0]) : null;
+}
+
+// Største fisk vinner Dex-bildet: vekt først, deretter lengde, så nyeste dato.
+export function isBetterCatch(candidate, current){
+  if(!candidate) return false;
+  if(!current) return true;
+  const cw=numberFromCatch(candidate.vekt), ow=numberFromCatch(current.vekt);
+  if(cw!=null || ow!=null){
+    if(cw!=null && ow==null) return true;
+    if(cw==null && ow!=null) return false;
+    if(cw!==ow) return cw>ow;
+  }
+  const cl=numberFromCatch(candidate.lengde), ol=numberFromCatch(current.lengde);
+  if(cl!=null || ol!=null){
+    if(cl!=null && ol==null) return true;
+    if(cl==null && ol!=null) return false;
+    if(cl!==ol) return cl>ol;
+  }
+  const ct=Date.parse(String(candidate.created||candidate.dato||'').replace(/\s/g,'T'))||0;
+  const ot=Date.parse(String(current.created||current.dato||'').replace(/\s/g,'T'))||0;
+  return ct>ot;
+}
+
+export function bestCatch(rows){
+  let best=null;
+  for(const row of (rows||[])) if(isBetterCatch(row,best)) best=row;
+  return best;
+}
+
+// Returnerer alle fangster for en art/fisker. Før v28-SQL-en finnes bare
+// den gamle oppsummeringen i catches, derfor faller vi pent tilbake til den.
+export function catchEntriesFor(s, member){
+  const rows = s && s.catchEntries && s.catchEntries[member];
+  if(rows && rows.length) return rows;
+  const legacy = s && s.catches && s.catches[member];
+  return legacy ? [{...legacy, id:legacy.entryId || ('legacy:'+s.id+':'+member), legacy:true}] : [];
+}
+
+export function allCatchEntriesForSpecies(s){
+  const members = new Set([...(Object.keys((s&&s.catches)||{})), ...(Object.keys((s&&s.catchEntries)||{}))]);
+  const rows=[];
+  for(const member of members){
+    for(const entry of catchEntriesFor(s, member)) rows.push({member, catch:entry});
+  }
+  return rows;
+}
+
 function catchIsSpeciesRecord(s, member){
   const current = s.catches && s.catches[member];
   if(!current) return false;
-  const entries = catchers(s).map(m=>s.catches[m]).filter(Boolean);
-  const weight = Number(String(current.vekt||'').replace(',', '.').match(/[0-9]+(?:\.[0-9]+)?/)?.[0]);
-  const length = Number(String(current.lengde||'').replace(',', '.').match(/[0-9]+(?:\.[0-9]+)?/)?.[0]);
-  const weights = entries.map(c=>Number(String(c.vekt||'').replace(',', '.').match(/[0-9]+(?:\.[0-9]+)?/)?.[0])).filter(Number.isFinite);
-  const lengths = entries.map(c=>Number(String(c.lengde||'').replace(',', '.').match(/[0-9]+(?:\.[0-9]+)?/)?.[0])).filter(Number.isFinite);
-  return (Number.isFinite(weight) && weights.length && weight === Math.max(...weights)) ||
-         (Number.isFinite(length) && lengths.length && length === Math.max(...lengths));
+  const entries = allCatchEntriesForSpecies(s).map(row=>row.catch).filter(Boolean);
+  const weight = numberFromCatch(current.vekt);
+  const length = numberFromCatch(current.lengde);
+  const weights = entries.map(c=>numberFromCatch(c.vekt)).filter(v=>v!=null);
+  const lengths = entries.map(c=>numberFromCatch(c.lengde)).filter(v=>v!=null);
+  return (weight!=null && weights.length && weight === Math.max(...weights)) ||
+         (length!=null && lengths.length && length === Math.max(...lengths));
 }
 
 export function visibleSpecies(){
@@ -165,7 +244,7 @@ export function visibleSpecies(){
     const c = isCaught(s);
     if(store.filterCaught===true && !c) return false;
     if(store.filterCaught===false && c) return false;
-    const hasPhoto = catchers(s).some(m=>s.catches[m] && s.catches[m].hasPhoto);
+    const hasPhoto = allCatchEntriesForSpecies(s).some(row=>row.catch && row.catch.hasPhoto);
     if(store.filterPhoto===true && !hasPhoto) return false;
     if(store.filterPhoto===false && hasPhoto) return false;
     if(store.filterMystery && c) return false;
@@ -173,21 +252,21 @@ export function visibleSpecies(){
     if(store.filterMine){
       if(!store.member || !(s.catches && s.catches[store.member])) return false;
     }
-    if(store.filterGps && !scope.some(m=>hasValidGps(s.catches && s.catches[m]))) return false;
+    if(store.filterGps && !scope.some(m=>catchEntriesFor(s,m).some(hasValidGps))) return false;
     if(store.filterRecord && !scope.some(m=>catchIsSpeciesRecord(s,m))) return false;
     if(store.q){
       const q = store.q.toLowerCase();
-      const catchText = catchers(s).map(m=>{ const e=s.catches[m]||{}; return [memberName(m),e.sted,e.dato,e.vekt,e.lengde,e.kommentar,e.weather,e.tide].join(' '); }).join(' ').toLowerCase();
+      const catchText = allCatchEntriesForSpecies(s).map(row=>{ const e=row.catch||{}; return [memberName(row.member),e.sted,e.dato,e.vekt,e.lengde,e.kommentar,e.weather,e.tide].join(' '); }).join(' ').toLowerCase();
       const infoText = [s.info,s.min].join(' ').toLowerCase();
       if(!s.name.toLowerCase().includes(q) && !s.id.toLowerCase().includes(q) && !catchText.includes(q) && !infoText.includes(q)) return false;
     }
     return true;
   });
-  const latestTime = s => Math.max(0, ...catchers(s).map(m=>Date.parse((s.catches[m].created || s.catches[m].dato || '').replace(/\s/g,'T')) || 0));
+  const latestTime = s => Math.max(0, ...allCatchEntriesForSpecies(s).map(row=>Date.parse((row.catch.created || row.catch.dato || '').replace(/\s/g,'T')) || 0));
   if(store.sortBy==='name') filtered.sort((a,b)=>a.name.localeCompare(b.name,'nb'));
   if(store.sortBy==='newest') filtered.sort((a,b)=>latestTime(b)-latestTime(a) || a.name.localeCompare(b.name,'nb'));
   if(store.sortBy==='reactions') filtered.sort((a,b)=>{
-    const total = x=>catchers(x).reduce((n,m)=>n+Object.values(x.catches[m].reactions||{}).reduce((a,v)=>a+(Number(v)||0),0),0);
+    const total = x=>allCatchEntriesForSpecies(x).reduce((n,row)=>n+Object.values(row.catch.reactions||{}).reduce((a,v)=>a+(Number(v)||0),0),0);
     return total(b)-total(a) || a.name.localeCompare(b.name,'nb');
   });
   return filtered;
@@ -205,12 +284,12 @@ export function anyModalOpen(){
 export function latestCatch(){
   let best = null;
   for(const s of store.species){
-    for(const m of catchers(s)){
-      if(store.member && m!==store.member) continue;
-      const c = s.catches[m];
-      const t = c.created || c.dato || '';
-      const row = {species:s, member:m, catch:c, t};
-      if(!best || row.t > best.t) best = row;
+    for(const row of allCatchEntriesForSpecies(s)){
+      if(store.member && row.member!==store.member) continue;
+      const c=row.catch;
+      const t=c.created || c.dato || '';
+      const item={species:s, member:row.member, catch:c, t};
+      if(!best || item.t > best.t) best=item;
     }
   }
   return best;

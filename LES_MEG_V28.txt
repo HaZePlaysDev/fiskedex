@@ -1,0 +1,6 @@
+FiskeDex v28
+
+1. Kjør fiskedex_v28_flere_fangster.sql i Supabase SQL Editor.
+2. Last opp alle filene fra v28 til GitHub Pages.
+
+Denne SQL-en sletter ingen data. Den kopierer de gamle fangstene inn i en ny fangstlogg, slik at dere kan registrere flere fangster av samme art.

@@ -1,6 +1,6 @@
 // Visninger: dashboard, toppliste, rekorder, fangstkart, fangstside og gjesteside
 /* global React, htm, L */
-import { store, update, useStore, toast, catchers, memberName, catOrder, canEdit, latestCatch, hasValidGps } from '../store.js';
+import { store, update, useStore, toast, catchers, memberName, catOrder, canEdit, latestCatch, hasValidGps, catchEntriesFor, allCatchEntriesForSpecies } from '../store.js';
 import { CATS } from '../data.js';
 import { FELLES, KARMOY } from '../config.js';
 import * as db from '../db.js';
@@ -12,10 +12,12 @@ const { useState, useEffect, useRef } = React;
 function allCatchRows(memberFilter = store.member){
   const rows = [];
   for(const s of store.species){
-    for(const m of catchers(s)){
+    const members = new Set([...(catchers(s)), ...(Object.keys(s.catchEntries||{}))]);
+    for(const m of members){
       if(memberFilter && m!==memberFilter) continue;
-      const c = s.catches[m];
-      rows.push({ t:(c.created||c.dato||''), species:s, member:m, catch:c });
+      for(const c of catchEntriesFor(s,m)){
+        rows.push({ t:(c.created||c.dato||''), species:s, member:m, catch:c });
+      }
     }
   }
   rows.sort((a,b)=> b.t>a.t?1 : b.t<a.t?-1 : 0);
@@ -189,12 +191,10 @@ export function StatsView(){
   };
 
   let recH=null, recL=null;
-  for(const s of store.species){
-    for(const m of catchers(s)){
-      const c = s.catches[m];
-      const w = parseWeightKg(c.vekt); if(w!=null && (!recH||w>recH.w)) recH={w, art:s.name, m};
-      const l = parseLengthCm(c.lengde); if(l!=null && (!recL||l>recL.l)) recL={l, art:s.name, m};
-    }
+  for(const row of allCatchRows(null)){
+    const c=row.catch;
+    const w = parseWeightKg(c.vekt); if(w!=null && (!recH||w>recH.w)) recH={w, art:row.species.name, m:row.member};
+    const l = parseLengthCm(c.lengde); if(l!=null && (!recL||l>recL.l)) recL={l, art:row.species.name, m:row.member};
   }
 
   const leaderboard = leaderboardRows();
@@ -323,7 +323,7 @@ export function RecordsView(){
   const artRecords = store.species
     .filter(s=>recordCat==='ALL' || s.cat===recordCat)
     .map(s=>{
-      const entries = catchers(s).map(member=>({member,catch:s.catches[member]}));
+      const entries = allCatchEntriesForSpecies(s);
       let heavy=null, long=null;
       for(const e of entries){
         const w=parseWeightKg(e.catch.vekt); if(w!=null && (!heavy || w>heavy.value)) heavy={value:w,...e};
